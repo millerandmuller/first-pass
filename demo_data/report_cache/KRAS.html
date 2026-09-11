@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Target Safety Assessment — KRAS</title>
+<style>
+  :root {
+    --ink: #1a1d23;
+    --muted: #5b6472;
+    --line: #d8dce2;
+    --paper: #ffffff;
+    --accent: #1f4e8c;
+    --grounded: #1e7a34;
+    --grounded-bg: #e7f5ea;
+    --ungrounded: #b3261e;
+    --ungrounded-bg: #fce8e6;
+    --curated-bg: #fff4d6;
+    --curated-ink: #8a5a00;
+    --card-strong: #1e7a34;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Georgia", "Iowan Old Style", serif;
+    color: var(--ink);
+    background: var(--paper);
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 4rem;
+    line-height: 1.55;
+  }
+  header.masthead {
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  header.masthead h1 {
+    font-size: 1.8rem;
+    margin: 0 0 0.25rem;
+  }
+  .meta-row {
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+  }
+  .eval-badges {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .eval-badge {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.78rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.25rem 0.7rem;
+    color: var(--muted);
+  }
+  .eval-badge.live { border-color: var(--accent); color: var(--accent); }
+  .eval-badge.gap { border-color: var(--ungrounded); color: var(--ungrounded); }
+  .data-source-note {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.85rem;
+    background: #fef3e2;
+    border: 1px solid #e8cf9c;
+    border-radius: 6px;
+    padding: 0.6rem 0.9rem;
+    margin: 1rem 0;
+  }
+  nav.toc {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+  }
+  nav.toc ol { margin: 0.4rem 0 0; padding-left: 1.4rem; }
+  section.report-section {
+    margin-bottom: 2.5rem;
+    page-break-inside: avoid;
+  }
+  section.report-section h2 {
+    font-size: 1.25rem;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 0.4rem;
+  }
+  .ref-link {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.75rem;
+    color: var(--accent);
+    text-decoration: none;
+    vertical-align: super;
+  }
+  .grounded { background: var(--grounded-bg); color: var(--grounded); border-radius: 3px; padding: 0 2px; }
+  .ungrounded { background: var(--ungrounded-bg); color: var(--ungrounded); border-radius: 3px; padding: 0 2px; }
+  .curated-badge {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.68rem;
+    background: var(--curated-bg);
+    color: var(--curated-ink);
+    border-radius: 4px;
+    padding: 0.1rem 0.4rem;
+    margin-left: 0.4rem;
+  }
+  .interpretation-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  @media (max-width: 640px) {
+    .interpretation-grid { grid-template-columns: 1fr; }
+  }
+  .interpretation-card {
+    border: 2px solid var(--line);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .interpretation-card.strongest {
+    border-color: var(--card-strong);
+    box-shadow: 0 0 0 1px var(--card-strong);
+  }
+  .interpretation-card h3 {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 0 0 0.5rem;
+    color: var(--muted);
+  }
+  .interpretation-card.strongest h3 { color: var(--card-strong); }
+  .confidence-note {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.6rem;
+  }
+  ol.bibliography {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.88rem;
+    padding-left: 1.4rem;
+  }
+  ol.bibliography li { margin-bottom: 0.5rem; }
+  .ref-id { font-weight: 700; color: var(--accent); }
+  footer.disclaimer {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.8rem;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    margin-top: 3rem;
+    padding-top: 1rem;
+  }
+
+  @media print {
+    nav.toc { display: none; }
+    body { max-width: 100%; padding: 0; }
+    section.report-section { page-break-after: always; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <h1>Target Safety Assessment — KRAS</h1>
+  <div class="meta-row">Generated 2026-09-11T18:57:39.324867+00:00 · First Pass</div>
+  
+  <div class="eval-badges">
+    
+      
+        <span class="eval-badge live">Builtin.Faithfulness: 1.00</span>
+      
+    
+      
+        <span class="eval-badge live">Builtin.Correctness: 1.00</span>
+      
+    
+  </div>
+  
+</header>
+
+
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <ol>
+    
+      <li><a href="#section-1">Target Profile &amp; Biological Function</a></li>
+    
+      <li><a href="#section-2">Genetic &amp; Knockout Precedent</a></li>
+    
+      <li><a href="#section-3">Class Effects &amp; Known Target Toxicities</a></li>
+    
+      <li><a href="#section-4">Regulatory &amp; Clinical Precedents</a></li>
+    
+      <li><a href="#section-5">Adversity &amp; Evidence Weight Analysis</a></li>
+    
+      <li><a href="#section-6">Nonclinical Safety Recommendations &amp; CTD-M2.4-Bridge</a></li>
+    
+      <li><a href="#section-7">References &amp; Regulatory Sources</a></li>
+    
+  </ol>
+</nav>
+
+
+<section class="report-section" id="section-1">
+  <h2>1. Target Profile &amp; Biological Function</h2>
+  
+  <p>KRAS encodes a small GTPase that functions as a critical signal transduction node controlling cell proliferation, survival, and differentiation. Germline loss-of-function of Kras is embryonic lethal in mice, with death occurring around embryonic day 12.5-14 due to defects in fetal liver erythropoiesis and fetal liver development <a class="ref-link" href="#ref-R-11">[R-11]</a>. Unlike its paralog Hras, which is dispensable for viability, Kras is the essential RAS paralog during development, indicating the two genes are not functionally redundant despite similar biochemistry <a class="ref-link" href="#ref-R-11">[R-11]</a>.</p>
+<p>KRAS belongs to the small GTPase superfamily and functions as a molecular switch cycling between active GTP-bound and inactive GDP-bound states. The target is a validated oncology therapeutic target, with somatic activating mutations (particularly G12C) driving tumorigenesis in multiple cancer types. Currently approved drugs acting on KRAS include the covalent G12C-specific inhibitors sotorasib <a class="ref-link" href="#ref-R-7">[R-7]</a> and adagrasib <a class="ref-link" href="#ref-R-1">[R-1]</a>, as well as daraxonrasib <a class="ref-link" href="#ref-R-2">[R-2]</a>, which represent a narrow mechanistic class targeting a specific mutant isoform rather than wild-type KRAS function.</p>
+<p>No evidence was found in the provided excerpts describing KRAS receptor/enzyme classification beyond its small GTPase activity, nor was evidence provided characterizing the broader pharmacological class landscape or mechanism of action for several listed approved drugs (azacitidine, avutometinib/defactinib combination, regorafenib, ramucirumab, panitumumab, tucatinib, trifluridine/tipiracil) in relation to KRAS as their primary molecular target. The G12C inhibitor class represents the only direct KRAS-targeted therapeutic modality supported by the provided evidence.</p>
+  
+
+  
+</section>
+
+<section class="report-section" id="section-2">
+  <h2>2. Genetic &amp; Knockout Precedent</h2>
+  
+  <p>Germline Kras-null mice die in utero around embryonic day 12.5–14, with defects in fetal liver erythropoiesis and fetal liver development [R-11, GEMOCKT/KURATIERT]. Unlike its paralog Hras, which is dispensable (Hras-null mice are viable and phenotypically near-normal), Kras is the essential RAS paralog during development, indicating the two genes are not functionally redundant despite similar biochemistry [R-11, GEMOCKT/KURATIERT]. Because germline loss-of-function is embryonic lethal, no viable adult knockout phenotype exists from which to infer safety or tolerability signals relevant to therapeutic inhibition in humans [R-11, GEMOCKT/KURATIERT].</p>
+<p>No FDA-approved therapy carries a broad KRAS class mechanism-of-action label. Approved KRAS-targeted agents are mutation-selective inhibitors (adagrasib, sotorasib, daraxonrasib) that bind the G12C mutant conformation specifically, not wild-type KRAS [R-1, R-2, R-7]. These narrow-spectrum agents permit inference only about G12C-mutant-selective inhibition, not about the consequences of pan-KRAS or wild-type KRAS blockade. Nonclinical findings in the mutation-selective inhibitor labels include reproductive organ effects (ovarian and uterine vacuolation, prostatic atrophy) with adagrasib <a class="ref-link" href="#ref-R-1">[R-1]</a>, bone remodeling with daraxonrasib <a class="ref-link" href="#ref-R-2">[R-2]</a>, and renal tubular toxicity with sotorasib <a class="ref-link" href="#ref-R-7">[R-7]</a>, but these findings arose in the context of G12C-selective pharmacology and do not extrapolate to wild-type KRAS function.</p>
+<p>The genetic precedent therefore provides no informative adult phenotype for target validation. The embryonic lethality of Kras knockout precludes any direct genetic inference about the safety or necessity of KRAS signaling in mature tissues. For the primary finding (hepatotoxicity with regorafenib, an approved drug in the KRAS-associated set), no mechanistic link to KRAS inhibition is evident; regorafenib is a multi-kinase inhibitor without KRAS-directed activity, and its hepatotoxicity likely reflects off-target kinase inhibition rather than RAS pathway modulation <a class="ref-link" href="#ref-R-5">[R-5]</a>.</p>
+  
+
+  
+</section>
+
+<section class="report-section" id="section-3">
+  <h2>3. Class Effects &amp; Known Target Toxicities</h2>
+  
+  <p>Direct KRAS G12C inhibitors (adagrasib, daraxonrasib, sotorasib) induce hepatotoxicity manifested as transaminase elevations and hepatocellular injury [R-1, R-2, R-7]. Regorafenib, a multi-kinase inhibitor with activity downstream of RAS signaling, carries a boxed warning for severe and sometimes fatal hepatotoxicity, requiring baseline and on-treatment monitoring and mandating dose interruption or discontinuation for elevated liver function tests or hepatocellular necrosis [R-5 (boxed warning)]. Gastrointestinal toxicities appear frequently across the class: diarrhea and mucositis affect patients on sotorasib and adagrasib, while regorafenib produces gastrointestinal perforation as a class-defining risk [R-5, R-7].</p>
+<p>Reproductive organ toxicity is documented in nonclinical studies across multiple agents targeting this pathway. Adagrasib induced ovarian vacuolation, uterine glandular epithelium changes, and vaginal atrophy in female rats, plus prostatic and seminal vesicle atrophy in males, all at clinically relevant exposures <a class="ref-link" href="#ref-R-1">[R-1]</a>. Regorafenib produced testicular tubular atrophy, oligospermia, epididymal cellular debris, and ovarian corpora lutea necrosis in rats and dogs <a class="ref-link" href="#ref-R-5">[R-5]</a>. Avutometinib caused ovarian and uterine atrophy and vaginal mucosal necrosis at or below human exposure multiples <a class="ref-link" href="#ref-R-4">[R-4]</a>. Tucatinib induced decreased corpora lutea, uterine atrophy, vaginal mucification, testicular atrophy, and oligospermia in rats <a class="ref-link" href="#ref-R-9">[R-9]</a>. Panitumumab disrupted menstrual cycling and hormone levels in monkeys <a class="ref-link" href="#ref-R-8">[R-8]</a>, while ramucirumab caused follicular mineralization in primate ovaries <a class="ref-link" href="#ref-R-6">[R-6]</a>. These findings collectively indicate reproductive endocrine disruption as a recurring nonclinical signal for agents modulating RAS pathway signaling.</p>
+<p>Azacitidine induced tumors of the hematopoietic system, lymphoreticular system, lung, mammary gland, skin, and testes in rodent carcinogenicity studies at 8–80% of the recommended human dose <a class="ref-link" href="#ref-R-3">[R-3]</a>. It demonstrated mutagenicity in bacterial and mammalian systems and induced micronuclei in mouse and hamster cells <a class="ref-link" href="#ref-R-3">[R-3]</a>. Trifluridine/tipiracil was genotoxic in bacterial reverse mutation, mammalian chromosomal aberration, and mouse micronucleus assays <a class="ref-link" href="#ref-R-10">[R-10]</a>. Regorafenib&#x27;s major human metabolite M-2 was clastogenic in vitro <a class="ref-link" href="#ref-R-5">[R-5]</a>. No germline KRAS loss-of-function human phenotype exists because Kras-null mice die in utero from fetal liver erythropoiesis defects <a class="ref-link" href="#ref-R-11">[R-11]</a>; no FDA-approved agent carries a pan-KRAS mechanism-of-action designation, limiting inference of class effects from complete target inhibition.</p>
+  
+
+  
+</section>
+
+<section class="report-section" id="section-4">
+  <h2>4. Regulatory &amp; Clinical Precedents</h2>
+  
+  <p>The FDA has granted marketing approval to several KRAS pathway-directed therapies, primarily mutation-selective KRAS G12C inhibitors and therapies targeting downstream or parallel pathways in KRAS-driven tumors. Sotorasib (LUMAKRAS) and adagrasib (KRAZATI) represent the first direct KRAS G12C inhibitors approved for non-small cell lung cancer harboring KRAS G12C mutations [R-7, R-1]. Daraxonrasib (RASONQUE) is another KRAS G12C-specific inhibitor <a class="ref-link" href="#ref-R-2">[R-2]</a>. These agents bind covalently to the cysteine at position 12 in the mutant protein, locking it in an inactive GDP-bound state. No broadly active pan-KRAS inhibitor has received FDA approval; all direct KRAS-targeted therapies are mutation-selective for the G12C variant.</p>
+<p>Additional approved agents act on KRAS-driven tumors through indirect mechanisms. Regorafenib (Stivarga), a multi-kinase inhibitor indicated for metastatic colorectal cancer and gastrointestinal stromal tumors, carries a boxed warning for severe and sometimes fatal hepatotoxicity, requiring hepatic function monitoring prior to and during treatment [PRIMARY FINDING, R-5]. Ramucirumab (CYRAMZA), a VEGFR2 antagonist, is approved for gastric, colorectal, and non-small cell lung cancers and showed dose-dependent follicular mineralization of the ovary in a 39-week monkey study <a class="ref-link" href="#ref-R-6">[R-6]</a>. Panitumumab (Vectibix), an EGFR antagonist approved for RAS wild-type metastatic colorectal cancer, caused prolonged menstrual cycles and amenorrhea in female cynomolgus monkeys at 1.25 to 5 times the recommended human dose, which reversed after discontinuation <a class="ref-link" href="#ref-R-8">[R-8]</a>.</p>
+<p>Nonclinical safety findings across KRAS-pathway drugs include reproductive organ toxicity. Adagrasib induced reversible vacuolation in female rat ovaries and uterus at doses equal to or greater than human exposure, and atrophy of male prostate and seminal vesicles at 1.6 times human exposure <a class="ref-link" href="#ref-R-1">[R-1]</a>. Avutometinib potassium and defactinib hydrochloride (AVMAPKI FAKZYNJA) caused reversible ovarian atrophy in female rats at ≥0.25 times human exposure and vaginal mucosal thinning in female monkeys at ≥0.7 times human exposure <a class="ref-link" href="#ref-R-4">[R-4]</a>. Tucatinib (TUKYSA) induced decreased corpora lutea, ovarian interstitial cell proliferation, uterine atrophy, and vaginal mucification in female rats at 0.1 times human exposure <a class="ref-link" href="#ref-R-9">[R-9]</a>. No approved KRAS-directed therapy has established germline loss-of-function precedent in viable adult humans; KRAS null mice die in utero with defects in fetal liver erythropoiesis, demonstrating that unlike its paralog HRAS, KRAS is essential for embryonic development and the two genes are not functionally redundant <a class="ref-link" href="#ref-R-11">[R-11]</a>.</p>
+  
+
+  
+</section>
+
+<section class="report-section" id="section-5">
+  <h2>5. Adversity &amp; Evidence Weight Analysis</h2>
+  
+  <p>Four independent interpretations of the primary finding are presented below, each citing only the evidence provided. No single interpretation is presented as this tool's recommendation -- that judgment belongs to the reviewing toxicologist.</p>
+  
+
+  
+  <div class="interpretation-grid">
+    
+    <div class="interpretation-card">
+      <h3>adverse</h3>
+      <p>The boxed warning for regorafenib documents severe and sometimes fatal hepatotoxicity in clinical trials, representing a dose-limiting toxicity requiring monitoring and potential treatment discontinuation [R-5]. This life-threatening hepatotoxicity is a clear toxicologically adverse effect that directly informs safety profile assessment and demonstrates that KRAS pathway inhibition can produce serious organ toxicity. The severity necessitates mandatory hepatic function monitoring and dose modifications or discontinuation based on liver function test elevations or hepatocellular necrosis, establishing hepatotoxicity as a critical safety concern for this target class [R-5].</p>
+      <p>
+        
+          <a class="ref-link" href="#ref-R-5">[R-5]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.08)</span>
+          
+        
+      </p>
+      <div class="confidence-note">The evidence links hepatotoxicity to regorafenib specifically but does not establish a direct mechanistic connection to KRAS inhibition versus other kinase targets, as regorafenib is a multi-kinase inhibitor.</div>
+    </div>
+    
+    <div class="interpretation-card strongest">
+      <h3>non-adverse — strongest grounding</h3>
+      <p>The hepatotoxicity observed in regorafenib clinical trials lacks corresponding nonclinical toxicology findings, as repeat-dose rat and dog studies documented reproductive and cardiovascular effects but not hepatic pathology [R-5]. This absence of hepatotoxicity in nonclinical studies at exposures comparable to or exceeding clinical doses suggests the clinical signal may reflect idiosyncratic response rather than target-inherent toxicity. Other KRAS pathway inhibitors demonstrate reversible organ findings in nonclinical studies, including hepatocellular hypertrophy in sotorasib-treated dogs [R-7] and phospholipidosis-related changes that reversed after dosing cessation in adagrasib studies [R-1], establishing a pattern of adaptive and reversible changes in this therapeutic class.</p>
+      <p>
+        
+          <a class="ref-link" href="#ref-R-5">[R-5]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.28)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-7">[R-7]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.35)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-1">[R-1]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.28)</span>
+          
+        
+      </p>
+      <div class="confidence-note">The primary limitation is that clinical hepatotoxicity severity is not directly addressed by the nonclinical animal study data available in these excerpts.</div>
+    </div>
+    
+    <div class="interpretation-card">
+      <h3>adaptive</h3>
+      <p>The hepatic response to KRAS inhibition represents an adaptive metabolic stress response in the organ most dependent on KRAS signaling for proliferative homeostasis. The absence of hepatotoxicity in 26-week repeat-dose animal studies with regorafenib [R-5], coupled with KRAS&#39;s essential role in fetal liver development and erythropoiesis [R-11], indicates that hepatic transaminase elevations reflect compensatory metabolic reprogramming rather than off-target injury. Sotorasib induces hepatocellular hypertrophy in dogs [R-7], a classic adaptive finding distinct from necrosis, supporting the interpretation that KRAS pathway modulation triggers expected on-target hepatic stress responses that occasionally decompensate in humans with pre-existing hepatic vulnerability.</p>
+      <p>
+        
+          <a class="ref-link" href="#ref-R-5">[R-5]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.10)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-7">[R-7]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.17)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-11">[R-11]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.14)</span>
+          
+        
+      </p>
+      <div class="confidence-note">The evidence limitation is the absence of mechanistic hepatic biomarker data in nonclinical studies distinguishing adaptive hypertrophy from early injury.</div>
+    </div>
+    
+    <div class="interpretation-card">
+      <h3>artifact</h3>
+      <p>The regorafenib hepatotoxicity signal represents a species-specific metabolic artifact rather than a predictive human safety finding. The 26-week chronic rat study [R-5] showed no hepatic findings despite demonstrating other organ toxicities (cardiac valve thickening), indicating that hepatotoxicity is not a reproducible consequence of regorafenib exposure in the most relevant nonclinical model. The sotorasib rat renal toxicity precedent [R-7] directly demonstrates that rodents exhibit enhanced cysteine S-conjugate β-lyase pathway metabolism compared to humans, making rats more susceptible to reactive metabolite formation than humans—this same species-specific metabolic difference likely explains any hepatic signals as rodent-specific bioactivation artifacts. The absence of hepatotoxicity in the controlled 26-week animal study [R-5] strongly suggests that the clinical hepatotoxicity arises from patient-specific factors (comedications, underlying disease, metabolic polymorphisms) rather than a reproducible pharmacologic effect of regorafenib.</p>
+      <p>
+        
+          <a class="ref-link" href="#ref-R-5">[R-5]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.22)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-7">[R-7]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.26)</span>
+          
+        
+      </p>
+      <div class="confidence-note">The rat study duration (26 weeks) may not capture late-onset or cumulative metabolic stress mechanisms that manifest in longer human exposures.</div>
+    </div>
+    
+  </div>
+  
+</section>
+
+<section class="report-section" id="section-6">
+  <h2>6. Nonclinical Safety Recommendations &amp; CTD-M2.4-Bridge</h2>
+  
+  <p>The four interpretations from Section 5 yield divergent nonclinical recommendations for hepatotoxicity observed clinically with regorafenib (STIVARGA). Under an **adverse** interpretation, CTD Module 2.4 should address the apparent disconnect between clinical hepatotoxicity (severe and sometimes fatal per boxed warning) and the absence of hepatic findings in the 26-week rat repeat-dose study <a class="ref-link" href="#ref-R-5">[R-5]</a>. The author must document whether hepatic histopathology, clinical chemistry (ALT, AST, bilirubin), or hepatocellular necrosis was evaluated in nonclinical studies, and if present, at what exposure multiples relative to the human recommended dose. The discussion should also address whether additional hepatotoxicity studies in a second species (e.g., dog, monkey) were conducted, and whether any positive findings correlate with clinical transaminase elevations or hepatocellular injury patterns.</p>
+<p>Under a **non-adverse** interpretation, Module 2.4 should document any hepatocellular hypertrophy, enzyme induction (e.g., CYP upregulation), or adaptive hepatic changes observed in nonclinical studies and clarify their reversibility. The author must establish whether clinical hepatotoxicity occurred at exposures substantially exceeding nonclinical no-observed-adverse-effect levels, indicating a steep dose-response relationship, or whether clinical cases represent idiosyncratic reactions uncorrelated with systemic exposure. An **adaptive** interpretation would require mechanistic investigation: the author should describe whether hepatocellular hypertrophy (as observed with sotorasib at 0.4 times human AUC <a class="ref-link" href="#ref-R-7">[R-7]</a>) reflects compensatory upregulation of metabolic pathways rather than overt toxicity, and whether clinical biomarkers (e.g., miR-122, GLDH) distinguish adaptive enzyme induction from hepatocellular necrosis. If adaptive, CTD-M2.4 should document reversibility in recovery-phase animals and whether clinical monitoring detected transient transaminase elevations that resolved despite continued dosing. Under an **artifact** interpretation, the discussion must address species-specific metabolic differences: sotorasib exhibited rat-specific renal toxicity via cysteine S-conjugate β-lyase metabolism not present in humans <a class="ref-link" href="#ref-R-7">[R-7]</a>; analogous hepatic metabolism differences (e.g., differential UGT, sulfotransferase, or aldehyde oxidase activity) may render rat hepatotoxicity non-predictive of human risk. The author should state whether human metabolite profiling and in vitro human hepatocyte studies were conducted to exclude species-specific bioactivation pathways operative in rats but absent in humans.</p>
+<p>The nonclinical dataset for regorafenib <a class="ref-link" href="#ref-R-5">[R-5]</a> reports no hepatic findings in the 26-week rat study; the only organ toxicities documented are cardiovascular (atrioventricular valve thickening) and reproductive (testicular/ovarian degeneration). No evidence found for hepatotoxicity findings in regorafenib nonclinical studies. Search path: all REGORAFENIB excerpts, 0 hepatotoxicity hits. The CTD-M2.4 author must retrieve complete histopathology tables, clinical chemistry data, and recovery-phase assessments from all repeat-dose studies (4-week, 13-week, 26-week in rats; chronic dog studies) to determine whether hepatic findings were present but judged non-adverse, or whether hepatotoxicity was entirely absent preclinically. For KRAS-class context, germline Kras-null mice exhibit embryonic lethality with fetal liver developmental defects <a class="ref-link" href="#ref-R-11">[R-11]</a>, but this does not inform adult hepatotoxicity risk. Neither of the two approved KRAS-G12C inhibitors exhibited hepatotoxicity: adagrasib caused phospholipidosis in reproductive organs <a class="ref-link" href="#ref-R-1">[R-1]</a>, and sotorasib induced renal tubular necrosis in rats (species-specific metabolism <a class="ref-link" href="#ref-R-7">[R-7]</a>) and centrilobular hepatocellular hypertrophy in dogs at 0.4 times human AUC (consistent with adaptive enzyme induction <a class="ref-link" href="#ref-R-7">[R-7]</a>), but no hepatocellular necrosis. No evidence found for KRAS-class hepatotoxicity signal. The CTD-M2.4 discussion should therefore treat regorafenib clinical hepatotoxicity as compound-specific, not target-class, and clarify whether the clinical findings represent idiosyncratic drug-induced liver injury (DILI) phenotype, immune-mediated injury, or on-target pharmacology in a metabolically stressed hepatocyte population.</p>
+  
+
+  
+</section>
+
+<section class="report-section" id="section-7">
+  <h2>7. References &amp; Regulatory Sources</h2>
+  
+  <ol class="bibliography"><li id="ref-R-1"><span class="ref-id">[R-1]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22ADAGRASIB%22&limit=1" target="_blank" rel="noopener">ADAGRASIB label -- Nonclinical Toxicology</a> (NDA216340) </li><li id="ref-R-2"><span class="ref-id">[R-2]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22DARAXONRASIB%22&limit=1" target="_blank" rel="noopener">DARAXONRASIB label -- Nonclinical Toxicology</a> (NDA220910) </li><li id="ref-R-3"><span class="ref-id">[R-3]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22AZACITIDINE%22&limit=1" target="_blank" rel="noopener">AZACITIDINE label -- Nonclinical Toxicology</a> (ANDA207518) </li><li id="ref-R-4"><span class="ref-id">[R-4]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22AVUTOMETINIB%20POTASSIUM%20AND%20DEFACTINIB%20HYDROCHLORIDE%22&limit=1" target="_blank" rel="noopener">AVUTOMETINIB POTASSIUM AND DEFACTINIB HYDROCHLORIDE label -- Nonclinical Toxicology</a> (NDA219616) </li><li id="ref-R-5"><span class="ref-id">[R-5]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22REGORAFENIB%22&limit=1" target="_blank" rel="noopener">REGORAFENIB label -- Nonclinical Toxicology</a> (NDA203085) </li><li id="ref-R-6"><span class="ref-id">[R-6]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22RAMUCIRUMAB%22&limit=1" target="_blank" rel="noopener">RAMUCIRUMAB label -- Nonclinical Toxicology</a> (BLA125477) </li><li id="ref-R-7"><span class="ref-id">[R-7]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22SOTORASIB%22&limit=1" target="_blank" rel="noopener">SOTORASIB label -- Nonclinical Toxicology</a> (NDA214665) </li><li id="ref-R-8"><span class="ref-id">[R-8]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22PANITUMUMAB%22&limit=1" target="_blank" rel="noopener">PANITUMUMAB label -- Nonclinical Toxicology</a> (BLA125147) </li><li id="ref-R-9"><span class="ref-id">[R-9]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22TUCATINIB%22&limit=1" target="_blank" rel="noopener">TUCATINIB label -- Nonclinical Toxicology</a> (NDA213411) </li><li id="ref-R-10"><span class="ref-id">[R-10]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22TRIFLURIDINE%20AND%20TIPIRACIL%22&limit=1" target="_blank" rel="noopener">TRIFLURIDINE AND TIPIRACIL label -- Nonclinical Toxicology</a> (NDA207981) </li><li id="ref-R-11"><span class="ref-id">[R-11]</span> <a href="internal://genetics-precedent/KRAS" target="_blank" rel="noopener">Curated knockout-precedent dataset</a> <span class="curated-badge">GEMOCKT/KURATIERT</span></li></ol>
+  
+
+  
+</section>
+
+
+<footer class="disclaimer">
+  [PLATZHALTER — Lutfiya formuliert] This report is a decision-support draft assembled from public regulatory sources. It does not constitute a nonclinical safety recommendation, does not set a NOAEL, and does not substitute for expert toxicological judgment.
+</footer>
+
+</body>
+</html>

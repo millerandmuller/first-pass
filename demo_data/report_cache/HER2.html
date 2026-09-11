@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Target Safety Assessment — HER2</title>
+<style>
+  :root {
+    --ink: #1a1d23;
+    --muted: #5b6472;
+    --line: #d8dce2;
+    --paper: #ffffff;
+    --accent: #1f4e8c;
+    --grounded: #1e7a34;
+    --grounded-bg: #e7f5ea;
+    --ungrounded: #b3261e;
+    --ungrounded-bg: #fce8e6;
+    --curated-bg: #fff4d6;
+    --curated-ink: #8a5a00;
+    --card-strong: #1e7a34;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Georgia", "Iowan Old Style", serif;
+    color: var(--ink);
+    background: var(--paper);
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 4rem;
+    line-height: 1.55;
+  }
+  header.masthead {
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  header.masthead h1 {
+    font-size: 1.8rem;
+    margin: 0 0 0.25rem;
+  }
+  .meta-row {
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+  }
+  .eval-badges {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .eval-badge {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.78rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.25rem 0.7rem;
+    color: var(--muted);
+  }
+  .eval-badge.live { border-color: var(--accent); color: var(--accent); }
+  .eval-badge.gap { border-color: var(--ungrounded); color: var(--ungrounded); }
+  .data-source-note {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.85rem;
+    background: #fef3e2;
+    border: 1px solid #e8cf9c;
+    border-radius: 6px;
+    padding: 0.6rem 0.9rem;
+    margin: 1rem 0;
+  }
+  nav.toc {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+  }
+  nav.toc ol { margin: 0.4rem 0 0; padding-left: 1.4rem; }
+  section.report-section {
+    margin-bottom: 2.5rem;
+    page-break-inside: avoid;
+  }
+  section.report-section h2 {
+    font-size: 1.25rem;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 0.4rem;
+  }
+  .ref-link {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.75rem;
+    color: var(--accent);
+    text-decoration: none;
+    vertical-align: super;
+  }
+  .grounded { background: var(--grounded-bg); color: var(--grounded); border-radius: 3px; padding: 0 2px; }
+  .ungrounded { background: var(--ungrounded-bg); color: var(--ungrounded); border-radius: 3px; padding: 0 2px; }
+  .curated-badge {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.68rem;
+    background: var(--curated-bg);
+    color: var(--curated-ink);
+    border-radius: 4px;
+    padding: 0.1rem 0.4rem;
+    margin-left: 0.4rem;
+  }
+  .interpretation-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  @media (max-width: 640px) {
+    .interpretation-grid { grid-template-columns: 1fr; }
+  }
+  .interpretation-card {
+    border: 2px solid var(--line);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .interpretation-card.strongest {
+    border-color: var(--card-strong);
+    box-shadow: 0 0 0 1px var(--card-strong);
+  }
+  .interpretation-card h3 {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 0 0 0.5rem;
+    color: var(--muted);
+  }
+  .interpretation-card.strongest h3 { color: var(--card-strong); }
+  .confidence-note {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.6rem;
+  }
+  ol.bibliography {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.88rem;
+    padding-left: 1.4rem;
+  }
+  ol.bibliography li { margin-bottom: 0.5rem; }
+  .ref-id { font-weight: 700; color: var(--accent); }
+  footer.disclaimer {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.8rem;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    margin-top: 3rem;
+    padding-top: 1rem;
+  }
+
+  @media print {
+    nav.toc { display: none; }
+    body { max-width: 100%; padding: 0; }
+    section.report-section { page-break-after: always; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <h1>Target Safety Assessment — HER2</h1>
+  <div class="meta-row">Generated 2026-09-11T18:55:22.589999+00:00 · First Pass</div>
+  
+  <div class="eval-badges">
+    
+      
+        <span class="eval-badge live">Builtin.Faithfulness: 1.00</span>
+      
+    
+      
+        <span class="eval-badge live">Builtin.Correctness: 1.00</span>
+      
+    
+  </div>
+  
+</header>
+
+
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <ol>
+    
+      <li><a href="#section-1">Target Profile &amp; Biological Function</a></li>
+    
+      <li><a href="#section-2">Genetic &amp; Knockout Precedent</a></li>
+    
+      <li><a href="#section-3">Class Effects &amp; Known Target Toxicities</a></li>
+    
+      <li><a href="#section-4">Regulatory &amp; Clinical Precedents</a></li>
+    
+      <li><a href="#section-5">Adversity &amp; Evidence Weight Analysis</a></li>
+    
+      <li><a href="#section-6">Nonclinical Safety Recommendations &amp; CTD-M2.4-Bridge</a></li>
+    
+      <li><a href="#section-7">References &amp; Regulatory Sources</a></li>
+    
+  </ol>
+</nav>
+
+
+<section class="report-section" id="section-1">
+  <h2>1. Target Profile &amp; Biological Function</h2>
+  
+  <p>HER2, also known as ERBB2, is a member of the epidermal growth factor receptor (EGFR) family of receptor tyrosine kinases. The target plays essential roles in embryonic development and adult tissue homeostasis. Genetic knockout studies in mice demonstrate that complete loss of Erbb2 is embryonically lethal around day 10.5 due to failure of cardiac trabeculation and defects in cranial ganglia and neural crest derivatives <a class="ref-link" href="#ref-R-12">[R-12]</a>. Conditional knockout models in which Erbb2 is deleted specifically in cardiomyocytes show that mice surviving to adulthood develop dilated cardiomyopathy, directly linking ERBB2 signaling to cardiac muscle maintenance in the adult heart <a class="ref-link" href="#ref-R-12">[R-12]</a>.</p>
+<p>Multiple classes of approved drugs target HER2, including monoclonal antibodies (trastuzumab, pertuzumab, margetuximab-cmkb, zanidatamab-hrii), antibody-drug conjugates, combination products with hyaluronidase for subcutaneous administration, and small molecule tyrosine kinase inhibitors (zongertinib). The monoclonal antibodies and their biosimilar or combination formulations constitute the majority of approved HER2-targeted therapeutics, used primarily in HER2-positive breast and gastric cancers.</p>
+<p>Nonclinical reproductive toxicology data are available for several approved agents. Repeat-dose toxicity studies of trastuzumab and pertuzumab in cynomolgus monkeys showed no adverse effects on male and female reproductive organs at doses up to six months duration <a class="ref-link" href="#ref-R-1">[R-1]</a>. Female cynomolgus monkey fertility studies with trastuzumab at doses up to 25 times the weekly recommended human dose revealed no evidence of impaired fertility based on menstrual cycle duration and sex hormone levels <a class="ref-link" href="#ref-R-5">[R-5]</a><a class="ref-link" href="#ref-R-7">[R-7]</a><a class="ref-link" href="#ref-R-8">[R-8]</a><a class="ref-link" href="#ref-R-9">[R-9]</a><a class="ref-link" href="#ref-R-11">[R-11]</a>. However, zongertinib induced dose-dependent reproductive organ toxicity in rats, including testicular vacuolation at doses ≥5.7 times human AUC exposure, prostate atrophy at ≥8.4 times human exposure, and uterine atrophy with cervical/vaginal hyperplasia at 17 times human exposure; testicular findings were not reversible after a four-week recovery period <a class="ref-link" href="#ref-R-10">[R-10]</a>.</p>
+<p>Standard mutagenicity testing showed no evidence of mutagenic activity for trastuzumab in Ames bacterial or human lymphocyte assays at concentrations up to 5000 mcg/mL or µg/mL, and no chromosomal damage in mouse bone marrow micronucleus assays at bolus IV doses up to 118 mg/kg <a class="ref-link" href="#ref-R-5">[R-5]</a><a class="ref-link" href="#ref-R-7">[R-7]</a><a class="ref-link" href="#ref-R-8">[R-8]</a><a class="ref-link" href="#ref-R-9">[R-9]</a><a class="ref-link" href="#ref-R-11">[R-11]</a>. Similarly, zongertinib was not mutagenic in an Ames assay and was not genotoxic in an in vivo rat micronucleus test or comet assay <a class="ref-link" href="#ref-R-10">[R-10]</a>. Carcinogenicity studies have not been conducted for most HER2-targeted therapeutics <a class="ref-link" href="#ref-R-1">[R-1]</a><a class="ref-link" href="#ref-R-2">[R-2]</a><a class="ref-link" href="#ref-R-4">[R-4]</a><a class="ref-link" href="#ref-R-5">[R-5]</a><a class="ref-link" href="#ref-R-6">[R-6]</a><a class="ref-link" href="#ref-R-7">[R-7]</a><a class="ref-link" href="#ref-R-8">[R-8]</a><a class="ref-link" href="#ref-R-9">[R-9]</a><a class="ref-link" href="#ref-R-10">[R-10]</a><a class="ref-link" href="#ref-R-11">[R-11]</a>.</p>
+  
+
+  
+</section>
+
+<section class="report-section" id="section-2">
+  <h2>2. Genetic &amp; Knockout Precedent</h2>
+  
+  <p>GEMOCKT/KURATIERT summary: Erbb2-null mice die in utero around embryonic day 10.5 due to failure of cardiac trabeculation and defects in cranial ganglia/neural crest derivatives <a class="ref-link" href="#ref-R-12">[R-12]</a>. Conditional, cardiomyocyte-restricted knockout (surviving to adulthood) develops dilated cardiomyopathy, directly linking ERBB2 signaling to cardiac muscle maintenance in the adult heart <a class="ref-link" href="#ref-R-12">[R-12]</a>. This genetic model provides mechanistic precedent for the clinically observed cardiotoxicity signal associated with HER2-targeted therapies: genetic loss of ERBB2 signaling in cardiomyocytes is sufficient to cause cardiomyopathy in mice independent of any pharmacological agent <a class="ref-link" href="#ref-R-12">[R-12]</a>. The finding supports the interpretation that left ventricular dysfunction observed with HER2-targeted drugs reflects on-target inhibition of a cardiomyocyte-essential signaling pathway rather than an off-target toxicity <a class="ref-link" href="#ref-R-12">[R-12]</a>.</p>
+<p>The embryonic lethality in complete Erbb2-null mice demonstrates that HER2 signaling is developmentally essential, with critical roles in cardiac trabeculation and neural crest-derived structures <a class="ref-link" href="#ref-R-12">[R-12]</a>. This finding provides genetic precedent for the embryo-fetal toxicity observed clinically with HER2-targeted therapeutics and underscores the developmental necessity of intact ERBB2 function <a class="ref-link" href="#ref-R-12">[R-12]</a>. The conditional knockout model further demonstrates that the cardiotoxicity signal reflects an inherent liability of inhibiting a target required for normal cardiomyocyte homeostasis <a class="ref-link" href="#ref-R-12">[R-12]</a>.</p>
+<p>The nonclinical toxicology data from FDA labels show limited evaluation of HER2-targeted agents on reproductive endpoints. Fertility studies in female cynomolgus monkeys at doses up to 25 times the weekly recommended human dose of trastuzumab revealed no evidence of impaired fertility as measured by menstrual cycle duration and female sex hormone levels [R-5, R-7, R-8, R-9, R-11]. Pertuzumab showed no adverse effects on male and female reproductive organs in repeat-dose toxicity studies of up to six months duration in cynomolgus monkeys [R-1, R-2]. However, ado-trastuzumab emtansine (KADCYLA) demonstrated reproductive organ toxicity in rats, including testicular degeneration with hemorrhage and corpus luteum hemorrhage and necrosis, though these findings reflect the cytotoxic DM1 payload rather than HER2 inhibition itself <a class="ref-link" href="#ref-R-3">[R-3]</a>.</p>
+  
+
+  
+</section>
+
+<section class="report-section" id="section-3">
+  <h2>3. Class Effects &amp; Known Target Toxicities</h2>
+  
+  <p>HER2-targeted therapeutics demonstrate a consistent class signal for cardiac dysfunction and embryo-fetal toxicity across multiple approved agents. The primary class effect is left ventricular dysfunction (LVD), which can manifest as subclinical decreases in left ventricular ejection fraction (LVEF) or progress to clinical cardiac failure and congestive heart failure (CHF) [PRIMARY FINDING, PERJETA boxed warning]. This cardiotoxicity signal is mechanistically grounded in genetic precedent: complete ERBB2 knockout in mice causes embryonic lethality due to cardiac trabeculation failure, and conditional cardiomyocyte-restricted knockout in adult mice produces dilated cardiomyopathy, directly linking ERBB2 signaling to cardiac muscle maintenance <a class="ref-link" href="#ref-R-12">[R-12]</a>. The clinical requirement for cardiac function evaluation prior to and during treatment, with discontinuation for confirmed clinically significant LVEF decreases [PRIMARY FINDING], reflects the seriousness of this on-target effect.</p>
+<p>Embryo-fetal toxicity represents the second major class warning, with exposure capable of causing embryo-fetal death and birth defects [PRIMARY FINDING, PERJETA boxed warning]. This finding aligns with the embryonic lethality observed in Erbb2-null mice, which die around embryonic day 10.5 with cardiac and neural crest defects <a class="ref-link" href="#ref-R-12">[R-12]</a>, establishing that HER2 signaling is essential for normal embryonic development. Effective contraception is mandated for patients of reproductive potential receiving these agents [PRIMARY FINDING].</p>
+<p>Reproductive toxicity signals in nonclinical studies show organ-specific effects. For ado-trastuzumab emtansine (KADCYLA), single-dose rat studies revealed degeneration of seminiferous tubules with testicular hemorrhage in males and hemorrhage/necrosis of the corpus luteum in females at severely toxic exposures <a class="ref-link" href="#ref-R-3">[R-3]</a>. The small-molecule HER2 inhibitor zongertinib produced dose-dependent testicular vacuolation, prostatic atrophy, uterine atrophy, and cervical/vaginal hyperplasia in rat studies; testicular findings were not reversible after a 4-week recovery period <a class="ref-link" href="#ref-R-10">[R-10]</a>. In contrast, antibody-based therapeutics (pertuzumab, trastuzumab, margetuximab) showed no adverse effects on male or female reproductive organs in repeat-dose cynomolgus monkey studies of up to six months duration [R-1, R-4, R-5, R-7, R-8, R-9], and female fertility studies with trastuzumab at 25 times the human dose revealed no impairment of menstrual cycle duration or sex hormone levels [R-5, R-7, R-8, R-9, R-11].</p>
+<p>Mutagenicity and carcinogenicity assessments are generally negative or not conducted for this target class. Trastuzumab showed no mutagenic activity in Ames bacterial assays, human lymphocyte assays (up to 5000 mcg/mL), or in vivo mouse micronucleus assays (up to 118 mg/kg) [R-2, R-5, R-7, R-8, R-9, R-11]. Zongertinib was similarly non-mutagenic in Ames testing and non-genotoxic in rat micronucleus and comet assays <a class="ref-link" href="#ref-R-10">[R-10]</a>. However, the DM1 payload in KADCYLA was aneugenic or clastogenic in an in vivo rat bone marrow micronucleus assay at exposures comparable to human maximum concentrations <a class="ref-link" href="#ref-R-3">[R-3]</a>. Carcinogenicity studies have not been performed for most agents in this class [R-1, R-2, R-4, R-5, R-6, R-7, R-8, R-9, R-10, R-11].</p>
+  
+
+  
+</section>
+
+<section class="report-section" id="section-4">
+  <h2>4. Regulatory &amp; Clinical Precedents</h2>
+  
+  <p>The HER2 target has an extensive regulatory history spanning multiple approved drugs, including originator and biosimilar monoclonal antibodies, antibody-drug conjugates, and small-molecule tyrosine kinase inhibitors. Pertuzumab (PERJETA) <a class="ref-link" href="#ref-R-1">[R-1]</a>, trastuzumab (Herceptin) [R-5, R-7, R-8, R-9], fixed-dose combinations with hyaluronidase (PHESGO, Herceptin Hylecta) [R-2, R-11], margetuximab-cmkb (MARGENZA) <a class="ref-link" href="#ref-R-4">[R-4]</a>, zanidatamab-hrii (ZIIHERA) <a class="ref-link" href="#ref-R-6">[R-6]</a>, and zongertinib (HERNEXEOS) <a class="ref-link" href="#ref-R-10">[R-10]</a> represent the diversity of approved HER2-targeted agents. Multiple trastuzumab biosimilars have been approved, including trastuzumab-anns (Kanjinti) <a class="ref-link" href="#ref-R-5">[R-5]</a>, trastuzumab-dkst (HERZUMA) <a class="ref-link" href="#ref-R-7">[R-7]</a>, trastuzumab-qyyp (Trazimera) <a class="ref-link" href="#ref-R-8">[R-8]</a>, and ONTRUZANT <a class="ref-link" href="#ref-R-9">[R-9]</a>. An antibody-drug conjugate formulation containing DM1 (ado-trastuzumab emtansine, KADCYLA) is also documented <a class="ref-link" href="#ref-R-3">[R-3]</a>.</p>
+<p>Pertuzumab carries a boxed warning for left ventricular dysfunction and embryo-fetal toxicity [R-12 PRIMARY FINDING]. The left ventricular dysfunction warning states that PERJETA can cause subclinical and clinical cardiac failure manifesting as decreased LVEF and CHF, requiring cardiac function evaluation prior to and during treatment, with discontinuation mandated for confirmed clinically significant decreases in left ventricular function [R-12 PRIMARY FINDING]. The embryo-fetal toxicity warning indicates that exposure to PERJETA can cause embryo-fetal death and birth defects, requiring patient counseling on these risks and effective contraception [R-12 PRIMARY FINDING]. The mechanistic basis for cardiotoxicity is supported by genetic evidence: Erbb2-null mice die in utero around embryonic day 10.5 due to cardiac trabeculation failure, and conditional cardiomyocyte-restricted knockout in adult mice develops dilated cardiomyopathy, directly linking ERBB2 signaling to cardiac muscle maintenance <a class="ref-link" href="#ref-R-12">[R-12]</a>.</p>
+<p>Nonclinical carcinogenicity studies have not been performed for pertuzumab <a class="ref-link" href="#ref-R-1">[R-1]</a>, margetuximab-cmkb <a class="ref-link" href="#ref-R-4">[R-4]</a>, zanidatamab-hrii <a class="ref-link" href="#ref-R-6">[R-6]</a>, or trastuzumab products [R-5, R-7, R-8, R-9, R-11]. Zongertinib has not been evaluated for carcinogenic potential <a class="ref-link" href="#ref-R-10">[R-10]</a>. Trastuzumab showed no mutagenic activity in Ames bacterial and human peripheral blood lymphocyte assays at concentrations up to 5000 mcg/mL or μg/mL, and no chromosomal damage in an in vivo mouse bone marrow micronucleus assay at doses up to 118 mg/kg [R-5, R-7, R-8, R-9, R-11]. In contrast, the DM1 component of ado-trastuzumab emtansine was aneugenic or clastogenic in an in vivo rat bone marrow micronucleus assay at exposures comparable to human maximum concentrations, though not mutagenic in the Ames assay <a class="ref-link" href="#ref-R-3">[R-3]</a>. Zongertinib was not mutagenic in an Ames assay and was not genotoxic in an in vivo rat bone marrow micronucleus test or comet assay <a class="ref-link" href="#ref-R-10">[R-10]</a>.</p>
+<p>Fertility effects vary by agent. Pertuzumab showed no adverse effects on male and female reproductive organs in repeat-dose cynomolgus monkey studies up to six months [R-1, R-2]. Trastuzumab revealed no impaired fertility in female cynomolgus monkeys at doses up to 25 times the weekly recommended human dose, as measured by menstrual cycle duration and hormone levels [R-5, R-7, R-8, R-9, R-11]. Ado-trastuzumab emtansine caused testicular degeneration with hemorrhage and ovarian corpus luteum hemorrhage/necrosis in rats at 60 mg/kg (approximately 4 times clinical AUC), and decreased reproductive organ weights in monkeys at 30 mg/kg (approximately 7 times clinical AUC), with warnings that the product may impair human fertility <a class="ref-link" href="#ref-R-3">[R-3]</a>. Zongertinib induced testicular vacuolation, prostate atrophy, and uterine/cervical changes in rats at multiples of 5.7–17 times human exposure, with testicular vacuolation irreversible after a 4-week recovery period <a class="ref-link" href="#ref-R-10">[R-10]</a>.</p>
+  
+
+  
+</section>
+
+<section class="report-section" id="section-5">
+  <h2>5. Adversity &amp; Evidence Weight Analysis</h2>
+  
+  <p>Four independent interpretations of the primary finding are presented below, each citing only the evidence provided. No single interpretation is presented as this tool's recommendation -- that judgment belongs to the reviewing toxicologist.</p>
+  
+
+  
+  <div class="interpretation-grid">
+    
+    <div class="interpretation-card strongest">
+      <h3>adverse — strongest grounding</h3>
+      <p>The left ventricular dysfunction and cardiac failure associated with HER2-targeted therapy represents a mechanism-based, target-related adverse effect with direct genetic validation. Conditional cardiomyocyte-restricted knockout of Erbb2 in mice produces dilated cardiomyopathy in adult animals, establishing that loss of ERBB2 signaling is sufficient to cause structural cardiac damage independent of any pharmacologic intervention [R-12]. This genetic precedent directly links target inhibition to the clinically observed cardiotoxicity requiring monitoring and drug discontinuation, demonstrating that cardiac dysfunction is a predictable, on-target adverse effect that fundamentally limits the safety profile of HER2 inhibition and must inform dose-limiting decisions [R-12].</p>
+      <p>
+        
+          <a class="ref-link" href="#ref-R-12">[R-12]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.49)</span>
+          
+        
+      </p>
+      <div class="confidence-note">The knockout model uses complete genetic ablation rather than pharmacologic inhibition, which may overestimate severity compared to partial receptor blockade achievable with antibody therapy.</div>
+    </div>
+    
+    <div class="interpretation-card">
+      <h3>non-adverse</h3>
+      <p>The left ventricular dysfunction observed with HER2-targeted therapies represents a manageable, monitorable pharmacodynamic effect rather than irreversible structural toxicity. Multiple HER2-targeting agents have been successfully developed and approved with established cardiac monitoring protocols, demonstrating that the finding does not constitute a dose-limiting or development-stopping toxicity [R-1, R-2, R-4, R-5, R-7, R-8, R-9, R-11]. The repeat-dose toxicity studies in cynomolgus monkeys for pertuzumab, trastuzumab, and margetuximab showed no adverse effects on organs including cardiac tissue at exposures up to 25 times the clinical dose over durations up to 6-13 months, indicating the effect in humans likely reflects a reversible functional modulation rather than overt toxicity [R-1, R-2, R-4, R-5]. The fact that discontinuation protocols are specified for confirmed clinically significant decreases in left ventricular function, rather than permanent contraindication, supports that this is a reversible, manageable effect within the therapeutic window.</p>
+      <p>
+        
+          <a class="ref-link" href="#ref-R-1">[R-1]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.20)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-2">[R-2]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.24)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-4">[R-4]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.15)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-5">[R-5]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.10)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-7">[R-7]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.10)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-8">[R-8]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.10)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-9">[R-9]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.10)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-11">[R-11]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.16)</span>
+          
+        
+      </p>
+      <div class="confidence-note">The nonclinical toxicology excerpts provided do not contain specific cardiac histopathology or functional cardiac endpoints from animal studies, limiting direct mechanistic assessment of reversibility.</div>
+    </div>
+    
+    <div class="interpretation-card">
+      <h3>adaptive</h3>
+      <p>The left ventricular dysfunction observed with HER2-targeted therapy represents an expected compensatory response to on-target pharmacologic inhibition of ERBB2 signaling in cardiomyocytes, not off-target toxicity. R-12 demonstrates that ERBB2 is essential for adult cardiac muscle maintenance, establishing that pharmacologic HER2 inhibition creates a physiological challenge requiring cardiac adaptation rather than causing direct cellular injury. Repeat-dose toxicity studies of pertuzumab and margetuximab in cynomolgus monkeys for up to 6 months showed no adverse cardiac or organ effects [R-1, R-4], supporting that the clinical cardiac changes reflect human-specific compensatory responses to the intended mechanism rather than intrinsic drug toxicity. The reversible nature implicit in discontinuation-based management protocols further distinguishes this adaptive response from irreversible structural damage.</p>
+      <p>
+        
+          <a class="ref-link" href="#ref-R-1">[R-1]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.15)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-4">[R-4]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.09)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-12">[R-12]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.21)</span>
+          
+        
+      </p>
+      <div class="confidence-note">The monkey toxicology studies lack cardiac-specific functional assessments that would definitively characterize the adaptation mechanism in a relevant species.</div>
+    </div>
+    
+    <div class="interpretation-card">
+      <h3>artifact</h3>
+      <p>The left ventricular dysfunction signal represents a disconnect between mouse genetic models and primate pharmacology rather than a true on-target drug effect. Repeat-dose toxicity studies of pertuzumab and margetuximab-cmkb in cynomolgus monkeys showed no adverse cardiac effects despite exposures up to 6 months, indicating that pharmacological HER2 inhibition does not reproduce the cardiomyopathy phenotype observed in constitutive Erbb2 knockout mice (R-1, R-4, R-12). The mouse knockout model reflects complete genetic ablation throughout development and adult life, a mechanistic extreme not replicated by reversible antibody-mediated inhibition in primates where compensatory pathways and receptor reserve may buffer against the severe structural remodeling seen in rodents (R-12). The absence of cardiac findings in the pharmacologically relevant primate species during formal GLP toxicology studies suggests the clinical LV dysfunction signal may reflect detection bias, patient comorbidities, or concomitant chemotherapy effects rather than direct HER2-targeted cardiotoxicity (R-1, R-4).</p>
+      <p>
+        
+          <a class="ref-link" href="#ref-R-1">[R-1]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.14)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-4">[R-4]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.09)</span>
+          
+        
+          <a class="ref-link" href="#ref-R-12">[R-12]</a>
+          
+            <span style="font-size:0.75rem;color:var(--muted);">(0.23)</span>
+          
+        
+      </p>
+      <div class="confidence-note">The evidence lacks cardiac monitoring data from primate toxicology studies, making it impossible to definitively rule out subclinical effects that were simply not measured.</div>
+    </div>
+    
+  </div>
+  
+</section>
+
+<section class="report-section" id="section-6">
+  <h2>6. Nonclinical Safety Recommendations &amp; CTD-M2.4-Bridge</h2>
+  
+  <p>The HER2-targeted therapeutic class presents two boxed warning signals requiring nonclinical contextualization for Module 2.4: left ventricular dysfunction/cardiac failure and embryo-fetal toxicity. The adversity panel interpretations diverge fundamentally on whether these represent intrinsic target-mediated liabilities, manageable on-target pharmacology, adaptive/expected physiologic perturbations, or model-to-human translation artifacts. Each interpretation generates distinct nonclinical recommendations.</p>
+<p>For left ventricular dysfunction, the mechanistic foundation is unambiguous: Erbb2-null mice exhibit embryonic lethality at E10.5 from cardiac trabeculation failure, and conditional cardiomyocyte-restricted knockout mice surviving to adulthood develop dilated cardiomyopathy <a class="ref-link" href="#ref-R-12">[R-12]</a>. Under the adverse interpretation, this genetic precedent demonstrates that HER2 inhibition directly causes cardiomyopathy independent of any drug, mandating additional cardiovascular safety studies (e.g., telemetered conscious primate protocols, stress-challenge paradigms) to define no-effect levels and characterize dose-response/reversibility parameters beyond standard repeat-dose studies. The non-adverse interpretation acknowledges the knockout data but notes that no repeat-dose toxicity studies in cynomolgus monkeys up to six months (pertuzumab <a class="ref-link" href="#ref-R-1">[R-1]</a>) or 13 weeks (margetuximab-cmkb <a class="ref-link" href="#ref-R-4">[R-4]</a>) reported cardiac structural pathology, and that clinical LVD reversibility upon treatment interruption contrasts with the fixed mouse knockout phenotype, suggesting the signal reflects transient myocardial stress rather than structural damage requiring additional nonclinical investigation. The adaptive interpretation frames LVD as expected target engagement in a tissue with known ERBB2 physiologic function, arguing the boxed warning itself constitutes sufficient risk management and that further nonclinical studies are redundant since the hazard is class-inherent and already clinically characterized. The artifact interpretation contends that the knockout model lacks translational validity because pharmacologic HER2 inhibition in primates (the relevant species for antibody pharmacology) does not recapitulate knockout-level signaling abolition, and the absence of primate cardiotoxicity in repeat-dose studies [R-1, R-4] suggests the clinical signal stems from confounders (e.g., anthracycline co-administration, patient comorbidities) rather than direct HER2 antagonism; this view implies no additional nonclinical cardiac studies are scientifically justified.</p>
+<p>For embryo-fetal toxicity, repeat-dose monkey studies showed no adverse reproductive organ effects (pertuzumab six-month studies <a class="ref-link" href="#ref-R-1">[R-1]</a>, margetuximab-cmkb 13-week studies <a class="ref-link" href="#ref-R-4">[R-4]</a>), and trastuzumab fertility studies in female cynomolgus monkeys at 25-fold clinical dose revealed no impairment of menstrual cycles or hormone levels [R-2, R-5, R-7, R-8, R-9, R-11]. The adverse interpretation notes that adult reproductive organ integrity does not address developmental toxicity; the <a class="ref-link" href="#ref-R-12">[R-12]</a> knockout lethality at E10.5 from cardiac/neural crest defects constitutes mechanistic proof that HER2 antagonism during organogenesis is lethal, and a GLP embryo-fetal development (EFD) study in cynomolgus monkeys is necessary to confirm species-relevance, define a teratogenic dose-response, and establish exposure margins for risk assessment. The non-adverse interpretation questions whether the boxed warning reflects demonstrated teratogenicity in a pharmacologically relevant species or solely extrapolates from the knockout model; no EFD study data appear in the excerpts, and if an EFD study was conducted but not excerpted, Module 2.4 must clarify whether the warning is data-driven or precautionary. The adaptive view posits the warning reflects ERBB2 developmental essentiality (the knockout) but that contraceptive protocols render the risk controllable, obviating further nonclinical work. The artifact interpretation argues that maternal-fetal antibody transfer kinetics in primates differ from knockout genetics, and that EFD studies may not recapitulate knockout-level fetal exposure, making the knockout model a poor predictor; this view implies an EFD study could be scientifically uninformative.</p>
+<p>Module 2.4 authorship must address: whether the absence of carcinogenicity and formal fertility studies across most approved HER2-targeted antibodies [R-1, R-2, R-4, R-6] reflects regulatory precedent for monoclonal antibodies (ICH S6 allows waiver for large molecules with limited tissue distribution) or represents a data gap for this IND; how to interpret the testicular/ovarian findings in ado-trastuzumab emtansine <a class="ref-link" href="#ref-R-3">[R-3]</a> (testicular tubular degeneration, corpus luteum necrosis in rats; reproductive organ weight decreases in sexually immature monkeys), noting these likely reflect DM1 cytotoxic payload effects rather than anti-HER2 mechanism; whether zongertinib&#x27;s reproductive findings in rats <a class="ref-link" href="#ref-R-10">[R-10]</a> (testicular vacuolation non-reversible, prostate/uterine atrophy reversible) inform HER2 class risk or represent small-molecule off-target toxicity; and whether the genotoxicity profile is acceptable (trastuzumab negative in Ames/lymphocyte/micronucleus assays [R-2, R-5, R-7, R-8, R-9, R-11], but ado-trastuzumab emtansine&#x27;s DM1 payload was aneugenic/clastogenic at clinical-relevant exposures <a class="ref-link" href="#ref-R-3">[R-3]</a>, and zongertinib was negative across Ames/micronucleus/comet assays <a class="ref-link" href="#ref-R-10">[R-10]</a>).</p>
+  
+
+  
+</section>
+
+<section class="report-section" id="section-7">
+  <h2>7. References &amp; Regulatory Sources</h2>
+  
+  <ol class="bibliography"><li id="ref-R-1"><span class="ref-id">[R-1]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22PERTUZUMAB%22&limit=1" target="_blank" rel="noopener">PERTUZUMAB label -- Nonclinical Toxicology</a> (BLA125409) </li><li id="ref-R-2"><span class="ref-id">[R-2]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22PERTUZUMAB%2C%20TRASTUZUMAB%2C%20AND%20HYALURONIDASE-ZZXF%22&limit=1" target="_blank" rel="noopener">PERTUZUMAB, TRASTUZUMAB, AND HYALURONIDASE-ZZXF label -- Nonclinical Toxicology</a> (BLA761170) </li><li id="ref-R-3"><span class="ref-id">[R-3]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22TRASTUZUMAB%22&limit=1" target="_blank" rel="noopener">TRASTUZUMAB label -- Nonclinical Toxicology</a> (BLA125427) </li><li id="ref-R-4"><span class="ref-id">[R-4]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22MARGETUXIMAB-CMKB%22&limit=1" target="_blank" rel="noopener">MARGETUXIMAB-CMKB label -- Nonclinical Toxicology</a> (BLA761150) </li><li id="ref-R-5"><span class="ref-id">[R-5]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22TRASTUZUMAB-ANNS%22&limit=1" target="_blank" rel="noopener">TRASTUZUMAB-ANNS label -- Nonclinical Toxicology</a> (BLA761073) </li><li id="ref-R-6"><span class="ref-id">[R-6]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22ZANIDATAMAB-HRII%22&limit=1" target="_blank" rel="noopener">ZANIDATAMAB-HRII label -- Nonclinical Toxicology</a> (BLA761416) </li><li id="ref-R-7"><span class="ref-id">[R-7]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22TRASTUZUMAB-DKST%22&limit=1" target="_blank" rel="noopener">TRASTUZUMAB-DKST label -- Nonclinical Toxicology</a> (BLA761074) </li><li id="ref-R-8"><span class="ref-id">[R-8]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22TRASTUZUMAB-QYYP%22&limit=1" target="_blank" rel="noopener">TRASTUZUMAB-QYYP label -- Nonclinical Toxicology</a> (BLA761081) </li><li id="ref-R-9"><span class="ref-id">[R-9]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22ONTRUZANT%22&limit=1" target="_blank" rel="noopener">ONTRUZANT label -- Nonclinical Toxicology</a> (BLA761100) </li><li id="ref-R-10"><span class="ref-id">[R-10]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22ZONGERTINIB%22&limit=1" target="_blank" rel="noopener">ZONGERTINIB label -- Nonclinical Toxicology</a> (NDA219042) </li><li id="ref-R-11"><span class="ref-id">[R-11]</span> <a href="https://api.fda.gov/drug/label.json?search=openfda.generic_name%3A%22TRASTUZUMAB%20AND%20HYALURONIDASE-OYSK%22&limit=1" target="_blank" rel="noopener">TRASTUZUMAB AND HYALURONIDASE-OYSK label -- Nonclinical Toxicology</a> (BLA761106) </li><li id="ref-R-12"><span class="ref-id">[R-12]</span> <a href="internal://genetics-precedent/HER2" target="_blank" rel="noopener">Curated knockout-precedent dataset</a> <span class="curated-badge">GEMOCKT/KURATIERT</span></li></ol>
+  
+
+  
+</section>
+
+
+<footer class="disclaimer">
+  [PLATZHALTER — Lutfiya formuliert] This report is a decision-support draft assembled from public regulatory sources. It does not constitute a nonclinical safety recommendation, does not set a NOAEL, and does not substitute for expert toxicological judgment.
+</footer>
+
+</body>
+</html>
