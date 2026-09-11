@@ -63,7 +63,7 @@ The three curated demo targets are pre-computed and served from cache with a vis
 
 ```bash
 python3.11 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt  # requirements.txt is the deployed runtime set; -dev adds uvicorn/pytest
 export AWS_REGION=us-west-2  # region matters: see backend/config.py
 uvicorn backend.api:app --reload --port 8000
 ```
