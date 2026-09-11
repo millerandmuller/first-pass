@@ -46,11 +46,27 @@ _HEARTBEAT_INTERVAL_SECONDS = 15
 # touches real Bedrock/AgentCore spend, so cap concurrency and enforce a
 # minimum gap between live runs process-wide. This is best-effort, not a
 # hard security boundary -- a serverless deployment can have multiple warm
-# instances that would each track this independently. The actual safety net
-# is the AWS billing alarm (see DECISION_LOG.md), which is instance-independent.
+# instances that would each track this independently. The hard stop is the
+# LIVE_RUNS_ENABLED kill switch below; the AWS billing alarm only notifies.
 _LIVE_RUN_LOCK = threading.Lock()
 _MIN_SECONDS_BETWEEN_LIVE_RUNS = 30
 _last_live_run_started_at = 0.0
+
+# Kill switch for every Bedrock-costing path. Default on; set the environment
+# variable LIVE_RUNS_ENABLED to 0/false/no/off to stop all live runs without a
+# code change. The three pre-computed demo targets keep serving from cache
+# either way -- they never touch Bedrock. Read per request, not at import,
+# so a test (or a future runtime config source) can flip it without a reload.
+_LIVE_RUNS_ENABLED_ENV = "LIVE_RUNS_ENABLED"
+_FALSY = {"0", "false", "no", "off"}
+LIVE_RUNS_PAUSED_MESSAGE = (
+    "Live runs are currently paused. The three pre-computed demo targets "
+    "(GLP-1R, HER2, KRAS) are still available."
+)
+
+
+def live_runs_enabled() -> bool:
+    return os.environ.get(_LIVE_RUNS_ENABLED_ENV, "1").strip().lower() not in _FALSY
 
 
 def _sse(event: dict) -> str:
@@ -78,6 +94,10 @@ def _generate_events(target: str):
     if cached is not None:
         yield _sse({"stage": "cache", "status": "done", "detail": f"served from {cached.run_label}"})
         yield _sse({"stage": "_report", "html": cache_banner_html(cached) + cached.html})
+        return
+
+    if not live_runs_enabled():
+        yield _sse({"stage": "_report_error", "detail": LIVE_RUNS_PAUSED_MESSAGE})
         return
 
     with _LIVE_RUN_LOCK:

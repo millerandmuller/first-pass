@@ -50,7 +50,7 @@ One HTTP request streams the whole run over Server-Sent Events: progress per sta
 
 The three curated demo targets are pre-computed and served from cache with a visible "served from a pre-computed demo run" banner — a live Bedrock call per visitor click is not sustainable for a project that has to stay freely testable for weeks after submission, and this is the mechanism that keeps it so. Any other target name runs the full live pipeline.
 
-**Known limitation:** the live-run rate limit is tracked in each function instance's own process memory, not a shared store. Vercel can route concurrent requests to different instances, each with an independent lock and timestamp, so two simultaneous live runs on different instances are not serialized against each other the way the single-process rate limit intends. The AWS billing alarm (Bedrock/AgentCore, scoped to this project) is the actual backstop against runaway spend; closing the gap properly would need an external shared store (Redis, DynamoDB) coordinating across instances, which was out of scope for this build.
+**Known limitation:** the live-run rate limit is best-effort and per function instance, not a hard global cap. The hard stop is the `LIVE_RUNS_ENABLED` environment variable: set it to `0` and every live run is refused with a plain message while the three cached demo targets keep working. A scoped AWS billing alarm notifies on spend but does not stop anything. Coordinating the rate limit across instances would need an external shared store (Redis, DynamoDB), which was out of scope for this build.
 
 ## Tech stack
 

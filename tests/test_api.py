@@ -152,6 +152,44 @@ def test_a_not_found_target_does_not_consume_the_live_run_cooldown(monkeypatch):
     assert api_module._last_live_run_started_at == 0.0
 
 
+def test_kill_switch_blocks_live_runs_but_not_cached_demo_targets(tmp_path, monkeypatch):
+    # LIVE_RUNS_ENABLED is the one hard stop on Bedrock spend (the per-process
+    # rate limit is best-effort, the billing alarm only emails). Off must mean
+    # zero pipeline calls for a live target, while the pre-computed demo
+    # targets keep serving -- they never cost anything.
+    from backend import demo_cache
+
+    calls = []
+
+    def must_not_run(target, on_progress):
+        calls.append(target)
+        raise AssertionError("pipeline ran while live runs were disabled")
+
+    monkeypatch.setattr(api_module, "run_pipeline", must_not_run)
+    monkeypatch.setattr(demo_cache, "_CACHE_DIR", str(tmp_path))
+    demo_cache.save_cached_report("HER2", "<p>cached HER2 report</p>", 99.0, "dry-run-1")
+
+    for value in ("0", "false", "No", " OFF "):
+        monkeypatch.setenv("LIVE_RUNS_ENABLED", value)
+        with client.stream("GET", "/api/generate", params={"target": "PD-L1"}) as resp:
+            events = _read_sse_events(resp)
+        assert events == [{"stage": "_report_error", "detail": api_module.LIVE_RUNS_PAUSED_MESSAGE}]
+
+    with client.stream("GET", "/api/generate", params={"target": "HER2"}) as resp:
+        events = _read_sse_events(resp)
+    assert [e["stage"] for e in events] == ["cache", "_report"]
+    assert calls == []
+
+
+def test_kill_switch_defaults_to_on(monkeypatch):
+    monkeypatch.delenv("LIVE_RUNS_ENABLED", raising=False)
+    assert api_module.live_runs_enabled() is True
+    monkeypatch.setenv("LIVE_RUNS_ENABLED", "1")
+    assert api_module.live_runs_enabled() is True
+    monkeypatch.setenv("LIVE_RUNS_ENABLED", "anything-else")
+    assert api_module.live_runs_enabled() is True
+
+
 def test_bedrock_throttling_surfaces_a_plain_english_message_not_the_raw_exception(monkeypatch):
     # Observed live in production (2026-09-11 demo rehearsal): an ordinary,
     # non-adversarial second live run tripped Bedrock's ConverseStream
