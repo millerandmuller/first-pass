@@ -86,6 +86,7 @@ class InterpretationBid:
     reference_ids: list[str]
     confidence_note: str
     grounding_scores: dict[str, float] = field(default_factory=dict)
+    highlighted_html: str = ""  # interpretation_text with grounded/ungrounded spans -- F4 Proof beat
 
 
 def _build_submit_tool(ledger: CitationLedger, bids: list[InterpretationBid]):

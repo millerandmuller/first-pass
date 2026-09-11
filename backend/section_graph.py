@@ -30,7 +30,7 @@ from strands.multiagent import GraphBuilder
 
 from backend.citation_ledger import CitationLedger
 from backend.config import AWS_REGION, BEDROCK_MODEL_ID
-from backend.grounding_score import score_claim
+from backend.grounding_score import highlight_html, score_claim, score_claim_against_sources
 from backend.interpretation_swarm import InterpretationBid, build_interpretation_swarm
 from backend.report_renderer import ReportSection
 
@@ -204,19 +204,29 @@ def _process_node_result(
 
 
 def _score_bids(bids: list[InterpretationBid], ledger: CitationLedger) -> None:
-    """Fill in each bid's grounding_scores against the real cited excerpt text.
+    """Fill in each bid's grounding_scores and highlighted_html against the
+    real cited excerpt text.
 
     build_interpretation_swarm's bids never get scored on their own -- that
     post-processing step only lived in the standalone run_interpretation_swarm
     helper (used for manual verification, not the nested-in-Graph path), so
     every bid from a real pipeline run had an empty grounding_scores dict
-    until this was added. Mutates `bids` in place.
+    until this was added. `highlighted_html` (the Proof beat's visible
+    grounded/ungrounded word coloring) was computed by grounding_score.py but
+    never called from anywhere in the real pipeline -- built and unit-tested
+    in isolation, never wired in. Mutates `bids` in place.
     """
     for bid in bids:
+        excerpts = []
         for rid in bid.reference_ids:
             source = ledger.get(rid)
             if source and source.excerpt_text:
                 bid.grounding_scores[rid] = score_claim(bid.interpretation_text, source.excerpt_text).score
+                excerpts.append(source.excerpt_text)
+        # Scored against zero excerpts (no citable source found) renders as
+        # fully "ungrounded" -- an honest signal, not a missing feature.
+        best_result = score_claim_against_sources(bid.interpretation_text, excerpts)
+        bid.highlighted_html = highlight_html(bid.interpretation_text, best_result)
 
 
 SECTION_5_TITLE = "Adversity & Evidence Weight Analysis"

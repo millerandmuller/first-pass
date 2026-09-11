@@ -22,11 +22,13 @@ from backend.config import REPORT_SECTIONS
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates")
 
-DISCLAIMER_PLACEHOLDER = (
-    "[PLATZHALTER — Lutfiya formuliert] This report is a decision-support "
-    "draft assembled from public regulatory sources. It does not constitute a "
-    "nonclinical safety recommendation, does not set a NOAEL, and does not "
-    "substitute for expert toxicological judgment."
+DEFAULT_DISCLAIMER = (
+    "This report is a decision-support draft assembled from public regulatory "
+    "sources -- openFDA labels, approval records, and FDA review documents. It "
+    "does not constitute a nonclinical safety recommendation, does not set a "
+    "NOAEL, and does not substitute for the judgment of a qualified "
+    "toxicologist. Every claim carries a citation; verifying and weighing that "
+    "evidence remains the reviewing scientist's responsibility."
 )
 
 
@@ -45,6 +47,7 @@ class InterpretationCard:
     grounding_scores: dict[str, float]
     confidence_note: str
     is_strongest: bool = False
+    highlighted_html: str = ""  # interpretation_text with grounded/ungrounded spans -- F4 Proof beat
 
     @property
     def best_grounding_score(self) -> float:
@@ -66,7 +69,7 @@ class Report:
     ledger: CitationLedger
     interpretation_cards: list[InterpretationCard] = field(default_factory=list)
     evaluation_scores: list[EvaluationScore] = field(default_factory=list)
-    disclaimer_text: str = DISCLAIMER_PLACEHOLDER
+    disclaimer_text: str = DEFAULT_DISCLAIMER
     data_source_note: Optional[str] = None  # e.g. "cached demo dataset -- openFDA unreachable"
 
 

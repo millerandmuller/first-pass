@@ -204,7 +204,7 @@
     {% for card in report.interpretation_cards %}
     <div class="interpretation-card{% if card.is_strongest %} strongest{% endif %}">
       <h3>{{ card.stance.replace('_', '-') }}{% if card.is_strongest %} — strongest grounding{% endif %}</h3>
-      <p>{{ card.interpretation_text }}</p>
+      <p>{{ card.highlighted_html | safe if card.highlighted_html else card.interpretation_text }}</p>
       <p>
         {% for rid in card.reference_ids %}
           <a class="ref-link" href="#ref-{{ rid }}">[{{ rid }}]</a>

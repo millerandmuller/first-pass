@@ -14,6 +14,7 @@ inspectable check.
 
 from __future__ import annotations
 
+import html
 import re
 from dataclasses import dataclass
 
@@ -90,7 +91,13 @@ def highlight_html(claim_text: str, result: GroundingResult) -> str:
     words get class="ungrounded" -- the visible red/green the demo script
     describes. Matching is done on tokens, not substrings, to avoid
     highlighting "her" inside "hers".
+
+    `claim_text` is model-generated (an interpretation agent's own words), so
+    it is escaped BEFORE the span-wrapping regex runs, and the result is safe
+    to render with Jinja's `| safe` filter -- escaping first doesn't change
+    which words match, since HTML escaping never touches alphanumeric runs.
     """
+    escaped_text = html.escape(claim_text)
     matched_set = set(result.matched_words)
     unmatched_set = set(result.unmatched_words)
 
@@ -103,4 +110,4 @@ def highlight_html(claim_text: str, result: GroundingResult) -> str:
             return f'<span class="ungrounded">{original}</span>'
         return original
 
-    return _WORD_RE.sub(_wrap, claim_text)
+    return _WORD_RE.sub(_wrap, escaped_text)

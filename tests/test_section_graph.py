@@ -102,6 +102,11 @@ def test_score_bids_fills_grounding_scores_from_ledger_excerpt_text():
     )
     _score_bids([bid], ledger)
     assert bid.grounding_scores[rid] == 1.0
+    # F4 Proof beat: the claim text comes back with grounded/ungrounded spans,
+    # not just a bare score -- this was built (grounding_score.highlight_html)
+    # but never wired into the real pipeline until this function called it.
+    assert '<span class="grounded">Rats</span>' in bid.highlighted_html
+    assert "ungrounded" not in bid.highlighted_html  # every word here is grounded
 
 
 def test_score_bids_skips_sources_with_no_excerpt_text():
@@ -113,6 +118,9 @@ def test_score_bids_skips_sources_with_no_excerpt_text():
     bid = InterpretationBid(stance="adverse", interpretation_text="claim", reference_ids=[rid], confidence_note="n")
     _score_bids([bid], ledger)
     assert bid.grounding_scores == {}
+    # No citable source text at all still produces highlighted_html -- every
+    # word renders "ungrounded", an honest signal rather than a blank field.
+    assert '<span class="ungrounded">claim</span>' in bid.highlighted_html
 
 
 def test_process_node_result_marks_content_filtered_without_fabricating_text():

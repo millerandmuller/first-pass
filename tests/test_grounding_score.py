@@ -64,6 +64,22 @@ def test_highlight_html_flags_ungrounded_uppercase_token():
     assert '<span class="ungrounded">KIDNEY</span>' in html
 
 
+def test_highlight_html_escapes_stray_markup_in_claim_text():
+    # claim_text is model-generated, not developer-controlled, and the
+    # rendered result is used with Jinja's `| safe` filter -- a stray
+    # "<script>" in the model's own words must not reach the page unescaped.
+    source = "Cardiotoxicity was observed in the trial."
+    claim = 'Cardiotoxicity <script>alert(1)</script> was observed & noted.'
+    result = score_claim(claim, source)
+    html_out = highlight_html(claim, result)
+    assert "<script>" not in html_out
+    assert "&lt;" in html_out and "&gt;" in html_out  # "script" is itself a word token, so it
+    # gets wrapped in its own <span> between the escaped angle brackets -- the safety property
+    # that matters is that the ORIGINAL "<script>" tag characters never survive unescaped.
+    assert "&amp;" in html_out
+    assert '<span class="grounded">Cardiotoxicity</span>' in html_out
+
+
 def test_grounding_against_real_openfda_label_text():
     label = get_label("LIRAGLUTIDE")
     assert label.nonclinical_toxicology, "expected real nonclinical_toxicology text from openFDA"

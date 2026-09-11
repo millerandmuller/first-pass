@@ -152,6 +152,7 @@ def run_pipeline(target: str, on_progress: ProgressCallback = _noop_progress) ->
             reference_ids=bid.reference_ids,
             grounding_scores=bid.grounding_scores,
             confidence_note=bid.confidence_note,
+            highlighted_html=bid.highlighted_html,
         )
         for bid in bids
     ]

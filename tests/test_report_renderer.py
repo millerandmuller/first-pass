@@ -124,7 +124,7 @@ def test_render_html_includes_bibliography_with_real_application_number():
 def test_render_markdown_is_well_formed_and_includes_disclaimer():
     report = _build_real_report()
     markdown = render_markdown(report)
-    assert "PLATZHALTER" in markdown
+    assert "does not substitute for the judgment of a qualified toxicologist" in markdown
     assert "# Target Safety Assessment: GLP-1R" in markdown
 
 
