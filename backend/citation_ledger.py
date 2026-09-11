@@ -83,8 +83,8 @@ class CitationLedger:
             raise KeyError(f"unregistered reference id: {reference_id}")
         return f"[{reference_id}]"
 
-    def to_markdown(self) -> str:
-        lines = ["## References & Regulatory Sources", ""]
+    def to_markdown(self, *, include_heading: bool = True) -> str:
+        lines = ["## References & Regulatory Sources", ""] if include_heading else []
         for source in self.bibliography():
             parts = [f"**[{source.reference_id}]**", source.title]
             if source.application_number:

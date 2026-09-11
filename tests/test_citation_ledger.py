@@ -56,6 +56,16 @@ def test_curated_source_is_marked_in_markdown_and_html():
     assert "GEMOCKT/KURATIERT" in html
 
 
+def test_to_markdown_can_omit_heading_for_embedding_in_a_numbered_section():
+    ledger = CitationLedger()
+    ledger.register(source_type="label", title="X", url="https://x/1")
+    with_heading = ledger.to_markdown()
+    without_heading = ledger.to_markdown(include_heading=False)
+    assert with_heading.startswith("## References & Regulatory Sources")
+    assert not without_heading.startswith("##")
+    assert "References & Regulatory Sources" not in without_heading
+
+
 def test_application_number_and_date_appear_in_bibliography_entry():
     ledger = CitationLedger()
     ledger.register(

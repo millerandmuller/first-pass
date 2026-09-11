@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Target Safety Assessment — {{ report.target }}</title>
+<style>
+  :root {
+    --ink: #1a1d23;
+    --muted: #5b6472;
+    --line: #d8dce2;
+    --paper: #ffffff;
+    --accent: #1f4e8c;
+    --grounded: #1e7a34;
+    --grounded-bg: #e7f5ea;
+    --ungrounded: #b3261e;
+    --ungrounded-bg: #fce8e6;
+    --curated-bg: #fff4d6;
+    --curated-ink: #8a5a00;
+    --card-strong: #1e7a34;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Georgia", "Iowan Old Style", serif;
+    color: var(--ink);
+    background: var(--paper);
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 4rem;
+    line-height: 1.55;
+  }
+  header.masthead {
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  header.masthead h1 {
+    font-size: 1.8rem;
+    margin: 0 0 0.25rem;
+  }
+  .meta-row {
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+  }
+  .eval-badges {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .eval-badge {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.78rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.25rem 0.7rem;
+    color: var(--muted);
+  }
+  .eval-badge.live { border-color: var(--accent); color: var(--accent); }
+  .eval-badge.gap { border-color: var(--ungrounded); color: var(--ungrounded); }
+  .data-source-note {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.85rem;
+    background: #fef3e2;
+    border: 1px solid #e8cf9c;
+    border-radius: 6px;
+    padding: 0.6rem 0.9rem;
+    margin: 1rem 0;
+  }
+  nav.toc {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+  }
+  nav.toc ol { margin: 0.4rem 0 0; padding-left: 1.4rem; }
+  section.report-section {
+    margin-bottom: 2.5rem;
+    page-break-inside: avoid;
+  }
+  section.report-section h2 {
+    font-size: 1.25rem;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 0.4rem;
+  }
+  .ref-link {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.75rem;
+    color: var(--accent);
+    text-decoration: none;
+    vertical-align: super;
+  }
+  .grounded { background: var(--grounded-bg); color: var(--grounded); border-radius: 3px; padding: 0 2px; }
+  .ungrounded { background: var(--ungrounded-bg); color: var(--ungrounded); border-radius: 3px; padding: 0 2px; }
+  .curated-badge {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.68rem;
+    background: var(--curated-bg);
+    color: var(--curated-ink);
+    border-radius: 4px;
+    padding: 0.1rem 0.4rem;
+    margin-left: 0.4rem;
+  }
+  .interpretation-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  @media (max-width: 640px) {
+    .interpretation-grid { grid-template-columns: 1fr; }
+  }
+  .interpretation-card {
+    border: 2px solid var(--line);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .interpretation-card.strongest {
+    border-color: var(--card-strong);
+    box-shadow: 0 0 0 1px var(--card-strong);
+  }
+  .interpretation-card h3 {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 0 0 0.5rem;
+    color: var(--muted);
+  }
+  .interpretation-card.strongest h3 { color: var(--card-strong); }
+  .confidence-note {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.6rem;
+  }
+  ol.bibliography {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.88rem;
+    padding-left: 1.4rem;
+  }
+  ol.bibliography li { margin-bottom: 0.5rem; }
+  .ref-id { font-weight: 700; color: var(--accent); }
+  footer.disclaimer {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.8rem;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    margin-top: 3rem;
+    padding-top: 1rem;
+  }
+
+  @media print {
+    nav.toc { display: none; }
+    body { max-width: 100%; padding: 0; }
+    section.report-section { page-break-after: always; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <h1>Target Safety Assessment — {{ report.target }}</h1>
+  <div class="meta-row">Generated {{ report.generated_at }} · First Pass</div>
+  {% if report.evaluation_scores %}
+  <div class="eval-badges">
+    {% for ev in report.evaluation_scores %}
+      {% if ev.status == "live" %}
+        <span class="eval-badge live">{{ ev.evaluator_id }}: {{ "%.2f"|format(ev.score) }}</span>
+      {% else %}
+        <span class="eval-badge gap">{{ ev.evaluator_id }}: GAP — unavailable</span>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</header>
+
+{% if report.data_source_note %}
+<div class="data-source-note">{{ report.data_source_note }}</div>
+{% endif %}
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <ol>
+    {% for section in report.sections %}
+      <li><a href="#section-{{ section.number }}">{{ section.title }}</a></li>
+    {% endfor %}
+  </ol>
+</nav>
+
+{% for section in report.sections %}
+<section class="report-section" id="section-{{ section.number }}">
+  <h2>{{ section.number }}. {{ section.title }}</h2>
+  {% if section.number == 7 %}
+  {{ bibliography_html | safe }}
+  {% else %}
+  {{ section.html_body | safe }}
+  {% endif %}
+
+  {% if section.number == 5 and report.interpretation_cards %}
+  <div class="interpretation-grid">
+    {% for card in report.interpretation_cards %}
+    <div class="interpretation-card{% if card.is_strongest %} strongest{% endif %}">
+      <h3>{{ card.stance.replace('_', '-') }}{% if card.is_strongest %} — strongest grounding{% endif %}</h3>
+      <p>{{ card.interpretation_text }}</p>
+      <p>
+        {% for rid in card.reference_ids %}
+          <a class="ref-link" href="#ref-{{ rid }}">[{{ rid }}]</a>
+          {% if card.grounding_scores.get(rid) is not none %}
+            <span style="font-size:0.75rem;color:var(--muted);">({{ "%.2f"|format(card.grounding_scores[rid]) }})</span>
+          {% endif %}
+        {% endfor %}
+      </p>
+      <div class="confidence-note">{{ card.confidence_note }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endfor %}
+
+<footer class="disclaimer">
+  {{ report.disclaimer_text }}
+</footer>
+
+</body>
+</html>
