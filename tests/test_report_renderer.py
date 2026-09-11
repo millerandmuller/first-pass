@@ -128,6 +128,27 @@ def test_render_markdown_is_well_formed_and_includes_disclaimer():
     assert "# Target Safety Assessment: GLP-1R" in markdown
 
 
+def test_cached_demo_reports_carry_the_approved_disclaimer_verbatim():
+    # The disclaimer wording was approved on 2026-09-11 exactly as rendered in
+    # the three pre-computed demo reports. The constant is the single source
+    # for every future report; if either side changes without the other, the
+    # demo shows one text and a live run another. Compare after unescaping:
+    # the template autoescapes the apostrophe to &#39; on the way in.
+    import html as html_lib
+    import os
+    import re
+
+    from backend.report_renderer import DEFAULT_DISCLAIMER
+
+    cache_dir = os.path.join(os.path.dirname(__file__), "..", "demo_data", "report_cache")
+    for target in ("GLP-1R", "HER2", "KRAS"):
+        with open(os.path.join(cache_dir, f"{target}.html"), encoding="utf-8") as fh:
+            raw = fh.read()
+        match = re.search(r'<footer class="disclaimer">\s*(.*?)\s*</footer>', raw, re.S)
+        assert match, f"{target}: no disclaimer footer in cached report"
+        assert html_lib.unescape(match.group(1)) == DEFAULT_DISCLAIMER, target
+
+
 def test_render_html_does_not_duplicate_references_section():
     # Section 7 in the brief IS "References & Regulatory Sources" -- the
     # bibliography must render inside it, not as a second appended block.

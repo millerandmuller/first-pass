@@ -22,6 +22,10 @@ from backend.config import REPORT_SECTIONS
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates")
 
+# Approved wording (2026-09-11, the reviewing toxicologist who owns this text).
+# Pinned: the three pre-computed demo reports carry this exact string, and
+# tests/test_report_renderer.py fails if the constant and the cached copies
+# ever drift apart. Any change here means regenerating those reports.
 DEFAULT_DISCLAIMER = (
     "This report is a decision-support draft assembled from public regulatory "
     "sources -- openFDA labels, approval records, and FDA review documents. It "
