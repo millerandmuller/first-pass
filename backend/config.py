@@ -23,7 +23,17 @@ OPENFDA_TIMEOUT_SECONDS = 15
 OPENFDA_MAX_RETRIES = 3
 OPENFDA_RETRY_BACKOFF_SECONDS = 1.5
 
-CACHE_DIR = os.environ.get("FIRST_PASS_CACHE_DIR", os.path.join(os.path.dirname(__file__), "..", "cache"))
+# Vercel's deployment filesystem is read-only except /tmp (verified live,
+# 2026-09-11: a live run 500'd with "[Errno 30] Read-only file system"
+# trying to write a PDF cache file next to the deployed code). Vercel sets
+# VERCEL=1 at runtime; default to /tmp there so this works out of the box
+# without relying on remembering to set FIRST_PASS_CACHE_DIR per deployment.
+_default_cache_dir = (
+    "/tmp/first-pass-cache"
+    if os.environ.get("VERCEL")
+    else os.path.join(os.path.dirname(__file__), "..", "cache")
+)
+CACHE_DIR = os.environ.get("FIRST_PASS_CACHE_DIR", _default_cache_dir)
 
 # accessdata.fda.gov returns an Akamai "apology"/rate-limit page (HTTP 200,
 # looks like real HTML) to requests without a browser-like User-Agent --
