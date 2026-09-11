@@ -41,14 +41,13 @@ attribute spans to several truly simultaneous runs.
 
 from __future__ import annotations
 
-import json
-import subprocess
-import tempfile
 import threading
 from dataclasses import dataclass
 from typing import Callable, Optional, TypeVar
 
+import boto3
 import opentelemetry.trace as trace_api
+from botocore.exceptions import BotoCoreError, ClientError
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
 
@@ -170,48 +169,42 @@ class EvaluationOutcome:
     error: Optional[str] = None
 
 
+_agentcore_client = None
+
+
+def _get_agentcore_client():
+    global _agentcore_client
+    if _agentcore_client is None:
+        _agentcore_client = boto3.client("bedrock-agentcore", region_name=AWS_REGION)
+    return _agentcore_client
+
+
 def evaluate_spans(spans: list, evaluator_id: str) -> EvaluationOutcome:
     """Run a built-in AgentCore evaluator against captured spans from one run.
 
-    Uses the CLI rather than a boto3 data-plane client because the
-    bedrock-agentcore data-plane operations are not yet in the boto3 version
-    pinned for this build; the CLI ships its own updated botocore model.
+    Calls boto3's bedrock-agentcore data-plane client directly. An earlier
+    version of this shelled out to `aws bedrock-agentcore evaluate` instead,
+    on the (wrong, unverified) assumption that the pinned boto3 lacked this
+    operation -- that broke a real deployment: Vercel's Python runtime has
+    no `aws` CLI binary on PATH, so every evaluation failed there with
+    "[Errno 2] No such file or directory: 'aws'" even though the pipeline
+    otherwise ran correctly end-to-end. boto3 1.43.92 (already pinned) has
+    `bedrock-agentcore` client's `evaluate()` natively; verified live.
     """
     eval_spans = [d for d in (_readable_span_to_eval_dict(s) for s in spans) if d is not None]
     if not eval_spans:
         return EvaluationOutcome(evaluator_id, status="gap", error="no evaluable invoke_agent span captured")
 
-    payload = {"sessionSpans": eval_spans}
-    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
-        json.dump(payload, fh, default=str)
-        input_path = fh.name
-
     try:
-        proc = subprocess.run(
-            [
-                "aws",
-                "bedrock-agentcore",
-                "evaluate",
-                "--region",
-                AWS_REGION,
-                "--evaluator-id",
-                evaluator_id,
-                "--evaluation-input",
-                f"file://{input_path}",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=60,
+        response = _get_agentcore_client().evaluate(
+            evaluatorId=evaluator_id,
+            evaluationInput={"sessionSpans": eval_spans},
         )
-    except subprocess.TimeoutExpired as exc:
-        return EvaluationOutcome(evaluator_id, status="gap", error=f"timeout: {exc}")
-
-    if proc.returncode != 0:
-        return EvaluationOutcome(evaluator_id, status="gap", error=proc.stderr.strip()[:500])
+    except (BotoCoreError, ClientError) as exc:
+        return EvaluationOutcome(evaluator_id, status="gap", error=str(exc)[:500])
 
     try:
-        result = json.loads(proc.stdout)
-        first = result["evaluationResults"][0]
+        first = response["evaluationResults"][0]
         return EvaluationOutcome(
             evaluator_id=evaluator_id,
             status="live",
@@ -219,7 +212,7 @@ def evaluate_spans(spans: list, evaluator_id: str) -> EvaluationOutcome:
             label=first.get("label"),
             explanation=first.get("explanation"),
         )
-    except (json.JSONDecodeError, KeyError, IndexError) as exc:
+    except (KeyError, IndexError) as exc:
         return EvaluationOutcome(evaluator_id, status="gap", error=f"unexpected response shape: {exc}")
 
 
