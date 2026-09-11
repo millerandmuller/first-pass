@@ -50,6 +50,13 @@
     margin-top: 1.5rem;
     display: none;
   }
+  #open-report-btn {
+    display: none;
+    margin-top: 1rem;
+    background: white;
+    color: #1f4e8c;
+    border: 2px solid #1f4e8c;
+  }
   #error-box {
     display: none;
     background: #fce8e6;
@@ -64,6 +71,7 @@
 
 <h1>First Pass</h1>
 <p class="tagline">Target in. Cited Target Safety Assessment out.</p>
+<p class="tagline">Type a drug target. Get the cited safety report a toxicologist spends days assembling.</p>
 
 <div class="input-row">
   <input type="text" id="target-input" placeholder="e.g. GLP-1R, HER2, KRAS" autofocus>
@@ -73,6 +81,7 @@
 <ul class="progress" id="progress-list"></ul>
 <div id="error-box"></div>
 <iframe id="report-frame"></iframe>
+<button id="open-report-btn" type="button">Open report in new tab</button>
 
 <script>
 const STAGE_LABELS = {
@@ -81,16 +90,28 @@ const STAGE_LABELS = {
   target_resolution: "Resolving target to approved drug names",
   evidence_retrieval: "Retrieving FDA label & review evidence",
   genetics_precedent: "Loading genetic/knockout precedent",
-  section_graph: "Writing report sections (4-agent adversity panel nested inside)",
+  section_graph: "Strands Graph: writing 7 report sections (Strands Swarm for the adversity panel nested inside)",
   evaluations: "Running AgentCore evaluations",
   report_render: "Rendering report",
 };
+
+// Shotlist note for /academy-submit (Beat 3, ~10s caption over this progress
+// list): "Strands Graph (7 nodes) with a Strands Swarm nested as node 5,
+// scored by AgentCore Evaluations."
 
 const input = document.getElementById("target-input");
 const button = document.getElementById("submit-btn");
 const progressList = document.getElementById("progress-list");
 const errorBox = document.getElementById("error-box");
 const reportFrame = document.getElementById("report-frame");
+const openReportBtn = document.getElementById("open-report-btn");
+
+// The report is rendered into the iframe via `srcdoc`, which traps the
+// document -- the print stylesheet in report.html.jinja is unreachable by
+// Ctrl+P on the outer page. This button opens the same HTML as a real
+// standalone document in a new tab, where the browser's own print dialog
+// can see the @media print rules.
+let lastReportHtml = "";
 
 function resetUI() {
   progressList.innerHTML = "";
@@ -98,7 +119,17 @@ function resetUI() {
   errorBox.textContent = "";
   reportFrame.style.display = "none";
   reportFrame.srcdoc = "";
+  openReportBtn.style.display = "none";
+  lastReportHtml = "";
 }
+
+openReportBtn.addEventListener("click", () => {
+  if (!lastReportHtml) return;
+  const blob = new Blob([lastReportHtml], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank");
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+});
 
 function ensureRow(stage) {
   let row = document.getElementById("stage-" + stage);
@@ -132,6 +163,8 @@ function submitTarget() {
       button.disabled = false;
       reportFrame.srcdoc = evt.html;
       reportFrame.style.display = "block";
+      lastReportHtml = evt.html;
+      openReportBtn.style.display = "inline-block";
       return;
     }
     if (evt.stage === "_report_error") {

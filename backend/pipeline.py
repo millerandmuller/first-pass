@@ -176,8 +176,18 @@ def run_pipeline(target: str, on_progress: ProgressCallback = _noop_progress) ->
         ledger=ledger,
         interpretation_cards=interpretation_cards,
         evaluation_scores=[
-            EvaluationScore("Builtin.Faithfulness", faithfulness.value or 0.0, faithfulness.status),
-            EvaluationScore("Builtin.Correctness", correctness.value or 0.0, correctness.status),
+            EvaluationScore(
+                "Builtin.Faithfulness",
+                faithfulness.value or 0.0,
+                faithfulness.status,
+                explanation=faithfulness.explanation or faithfulness.error or "",
+            ),
+            EvaluationScore(
+                "Builtin.Correctness",
+                correctness.value or 0.0,
+                correctness.status,
+                explanation=correctness.explanation or correctness.error or "",
+            ),
         ],
         data_source_note=" ".join(notes) if notes else None,
     )

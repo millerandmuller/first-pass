@@ -63,6 +63,7 @@ class EvaluationScore:
     evaluator_id: str
     score: float
     status: str  # "live" | "gap" -- a missing evaluator is a visible gap, never a fabricated value
+    explanation: str = ""  # LLM-judge explanation for "live", error text for "gap"
 
 
 @dataclass

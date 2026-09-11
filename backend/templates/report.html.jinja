@@ -55,7 +55,19 @@
     border-radius: 999px;
     padding: 0.25rem 0.7rem;
     color: var(--muted);
+    display: inline-block;
   }
+  .eval-badge summary {
+    cursor: pointer;
+    list-style: none;
+  }
+  .eval-badge summary::-webkit-details-marker { display: none; }
+  .eval-badge[open] {
+    border-radius: 12px;
+    padding: 0.5rem 0.8rem;
+    max-width: 32rem;
+  }
+  .eval-badge[open] summary { margin-bottom: 0.4rem; font-weight: 600; }
   .eval-badge.live { border-color: var(--accent); color: var(--accent); }
   .eval-badge.gap { border-color: var(--ungrounded); color: var(--ungrounded); }
   .data-source-note {
@@ -168,9 +180,15 @@
   <div class="eval-badges">
     {% for ev in report.evaluation_scores %}
       {% if ev.status == "live" %}
-        <span class="eval-badge live">{{ ev.evaluator_id }}: {{ "%.2f"|format(ev.score) }}</span>
+        <details class="eval-badge live">
+          <summary>{{ ev.evaluator_id }}: {{ "%.2f"|format(ev.score) }}</summary>
+          {{ ev.explanation }}
+        </details>
       {% else %}
-        <span class="eval-badge gap">{{ ev.evaluator_id }}: GAP — unavailable</span>
+        <details class="eval-badge gap">
+          <summary>{{ ev.evaluator_id }}: GAP — unavailable</summary>
+          {{ ev.explanation }}
+        </details>
       {% endif %}
     {% endfor %}
   </div>

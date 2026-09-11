@@ -79,8 +79,18 @@ def _build_real_report() -> Report:
         ledger=ledger,
         interpretation_cards=interpretation_cards,
         evaluation_scores=[
-            EvaluationScore("Builtin.Faithfulness", 0.91, "live"),
-            EvaluationScore("Builtin.Correctness", 0.0, "gap"),
+            EvaluationScore(
+                "Builtin.Faithfulness",
+                0.91,
+                "live",
+                explanation="Fully <supported> & consistent with the cited excerpt.",
+            ),
+            EvaluationScore(
+                "Builtin.Correctness",
+                0.0,
+                "gap",
+                explanation="ThrottlingException: rate exceeded",
+            ),
         ],
         data_source_note=None,
     )
@@ -106,6 +116,21 @@ def test_render_html_shows_gap_for_missing_evaluator():
     html = render_html(report)
     assert "GAP" in html
     assert "Builtin.Correctness" in html
+
+
+def test_render_html_evaluation_badges_are_details_with_escaped_explanation():
+    report = _build_real_report()
+    html = render_html(report)
+    # Two badges, each its own <details> element with a <summary>.
+    assert html.count('<details class="eval-badge live">') == 1
+    assert html.count('<details class="eval-badge gap">') == 1
+    assert html.count("</details>") == 2
+    assert "<summary>Builtin.Faithfulness: 0.91</summary>" in html
+    assert "<summary>Builtin.Correctness: GAP — unavailable</summary>" in html
+    # Explanation text renders, escaped by Jinja's autoescape (no `| safe`).
+    assert "Fully &lt;supported&gt; &amp; consistent with the cited excerpt." in html
+    assert "<supported>" not in html
+    assert "ThrottlingException: rate exceeded" in html
 
 
 def test_render_html_includes_curated_badge_for_genetics_source():
