@@ -30,6 +30,7 @@ from strands.multiagent import GraphBuilder
 
 from backend.citation_ledger import CitationLedger
 from backend.config import AWS_REGION, BEDROCK_MODEL_ID
+from backend.grounding_score import score_claim
 from backend.interpretation_swarm import InterpretationBid, build_interpretation_swarm
 from backend.report_renderer import ReportSection
 
@@ -202,6 +203,51 @@ def _process_node_result(
     )
 
 
+def _score_bids(bids: list[InterpretationBid], ledger: CitationLedger) -> None:
+    """Fill in each bid's grounding_scores against the real cited excerpt text.
+
+    build_interpretation_swarm's bids never get scored on their own -- that
+    post-processing step only lived in the standalone run_interpretation_swarm
+    helper (used for manual verification, not the nested-in-Graph path), so
+    every bid from a real pipeline run had an empty grounding_scores dict
+    until this was added. Mutates `bids` in place.
+    """
+    for bid in bids:
+        for rid in bid.reference_ids:
+            source = ledger.get(rid)
+            if source and source.excerpt_text:
+                bid.grounding_scores[rid] = score_claim(bid.interpretation_text, source.excerpt_text).score
+
+
+SECTION_5_TITLE = "Adversity & Evidence Weight Analysis"
+
+
+def _section_5_result(bids: list[InterpretationBid]) -> SectionWriteResult:
+    """Synthesize Section 5's ReportSection from the swarm's bids.
+
+    Section 5 is deliberately absent from SECTION_PROMPTS (its content comes
+    from the nested Swarm, not its own Agent node) -- without this, the
+    report silently ends up with only 6 of 7 sections, which is exactly what
+    happened here before this fix (caught by the full-pipeline integration
+    test, not by test_section_graph.py's own check, which compared `results`
+    against SECTION_PROMPTS.keys() and so could not see a key SECTION_PROMPTS
+    itself never had).
+    """
+    if not bids:
+        body = "<p><strong>No interpretations were produced.</strong> The adversity panel did not return any bids for this run.</p>"
+    else:
+        body = (
+            "<p>Four independent interpretations of the primary finding are presented below, "
+            "each citing only the evidence provided. No single interpretation is presented as "
+            "this tool's recommendation -- that judgment belongs to the reviewing toxicologist.</p>"
+        )
+    return SectionWriteResult(
+        section=ReportSection(5, SECTION_5_TITLE, body),
+        hallucinated_reference_ids=[],
+        dealbreaker_flags=[],
+    )
+
+
 def run_section_graph(
     ledger: CitationLedger,
     *,
@@ -215,5 +261,8 @@ def run_section_graph(
     for number, (title, _prompt) in SECTION_PROMPTS.items():
         node_result = graph_result.results[f"section_{number}"]
         results[number] = _process_node_result(number, title, node_result.result, ledger)
+
+    _score_bids(bids, ledger)
+    results[5] = _section_5_result(bids)
 
     return results, bids

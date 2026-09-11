@@ -28,6 +28,7 @@ class Source:
     url: str
     accessed_at: str
     curated: bool = False  # True for [GEMOCKT/KURATIERT] sources (F8) -- never hidden
+    excerpt_text: Optional[str] = None  # the actual retrieved text, for F4 grounding scoring
 
 
 class CitationLedger:
@@ -46,6 +47,7 @@ class CitationLedger:
         application_number: Optional[str] = None,
         date: Optional[str] = None,
         curated: bool = False,
+        excerpt_text: Optional[str] = None,
     ) -> str:
         key = (source_type, url)
         if key in self._key_to_id:
@@ -59,6 +61,7 @@ class CitationLedger:
             title=title,
             application_number=application_number,
             date=date,
+            excerpt_text=excerpt_text,
             url=url,
             accessed_at=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             curated=curated,

@@ -1,46 +1,52 @@
-"""Tests for the pipeline orchestrator against real upstream data.
+"""Tests for the full pipeline orchestrator (F6 through F15), live end-to-end.
 
-Runs end-to-end for a real demo target using every non-LLM stage (F6, F1,
-F8, F9). The LLM-dependent stages are expected to report "pending" while
-Bedrock Anthropic access is unavailable -- these assertions describe that
-honest partial state, not a fake completed one.
+One real target run touches: target resolution (F6), two-hop retrieval (F1),
+curated genetics (F8), the 7-node section graph with nested 4-agent swarm
+(F5+F3), and AgentCore evaluations (F15). No mocks. Each real run costs
+~90-120s, so this file keeps the number of full runs small.
 """
 
+import pytest
+
 from backend.pipeline import run_pipeline
+from backend.regulatory_reasoning import bedrock_claude_is_reachable
 
 
-def test_glp1r_end_to_end_produces_a_partial_report_with_pending_llm_stages():
+def test_unknown_target_produces_honest_empty_report_not_a_crash():
+    # No LLM involved -- target resolution fails fast, no graph is built.
+    result = run_pipeline("ZZZ-NOT-A-REAL-TARGET-99999")
+    assert result.target_resolution.found is False
+    assert result.is_partial is False
+    assert "No evidence found" in result.report.sections[0].html_body
+
+
+@pytest.mark.skipif(
+    not bedrock_claude_is_reachable(),
+    reason="Bedrock Anthropic access unavailable -- see DECISION_LOG.md 2026-09-11",
+)
+def test_glp1r_full_pipeline_produces_a_complete_grounded_report():
     events = []
-    result = run_pipeline("GLP-1R", on_progress=lambda stage, status, detail: events.append((stage, status)))
+    result = run_pipeline(
+        "GLP-1R", on_progress=lambda stage, status, detail: events.append((stage, status))
+    )
 
-    assert result.is_partial is True
     assert ("target_resolution", "done") in events
     assert ("evidence_retrieval", "done") in events
-    assert ("interpretation_swarm", "pending") in events
-    assert ("section_graph", "pending") in events
+    assert ("section_graph", "done") in events
+    assert any(stage == "evaluations" for stage, _ in events)
 
     report = result.report
     assert len(report.sections) == 7
     assert len(report.ledger) > 0
-    # Section 2 (genetics) must use the real curated GLP-1R precedent, not a placeholder
+    assert len(report.interpretation_cards) == 4  # the four Section 5 stances
+    assert {c.stance for c in report.interpretation_cards} == {
+        "adverse",
+        "non_adverse",
+        "adaptive",
+        "artifact",
+    }
+    # Section 2 (genetics) must use the real curated GLP-1R precedent
     assert "glucose" in report.sections[1].html_body.lower()
-
-
-def test_unknown_target_produces_honest_empty_report_not_a_crash():
-    result = run_pipeline("ZZZ-NOT-A-REAL-TARGET-99999")
-    assert result.target_resolution.found is False
-    assert "No evidence found" in result.report.sections[0].html_body
-
-
-def test_her2_resolves_and_has_no_genetics_gap():
-    result = run_pipeline("HER2")
-    assert result.target_resolution.found is True
-    assert "cardiac" in result.report.sections[1].html_body.lower()
-
-
-def test_kras_resolves_via_fallback_and_still_has_genetics_precedent():
-    result = run_pipeline("KRAS")
-    assert result.target_resolution.found is True
-    assert result.target_resolution.resolution_path == "full_text"
-    # KRAS genetics precedent exists (embryonic lethal) even though FDA label data is sparse
-    assert "lethal" in result.report.sections[1].html_body.lower()
+    # every reported evaluation score is either a real value or an honest gap
+    for ev in report.evaluation_scores:
+        assert ev.status in ("live", "gap")

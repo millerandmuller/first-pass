@@ -66,6 +66,55 @@ def test_check_dealbreakers_silent_on_clean_text():
     assert _check_dealbreakers(6, "Multiple interpretations exist; the debate is summarized.") == []
 
 
+def test_section_5_result_is_present_with_bids():
+    from backend.interpretation_swarm import InterpretationBid
+    from backend.section_graph import _section_5_result
+
+    bids = [InterpretationBid(stance="adverse", interpretation_text="x", reference_ids=["R-1"], confidence_note="y")]
+    result = _section_5_result(bids)
+    assert result.section.number == 5
+    assert "Four independent interpretations" in result.section.html_body
+
+
+def test_section_5_result_is_honest_when_no_bids_were_produced():
+    from backend.section_graph import _section_5_result
+
+    result = _section_5_result([])
+    assert "No interpretations were produced" in result.section.html_body
+
+
+def test_score_bids_fills_grounding_scores_from_ledger_excerpt_text():
+    from backend.interpretation_swarm import InterpretationBid
+    from backend.section_graph import _score_bids
+
+    ledger = CitationLedger()
+    rid = ledger.register(
+        source_type="label",
+        title="X",
+        url="https://x/1",
+        excerpt_text="Rats given 100 mg/kg showed no adverse effects on fertility.",
+    )
+    bid = InterpretationBid(
+        stance="adverse",
+        interpretation_text="Rats given 100 mg/kg showed no adverse effects on fertility.",
+        reference_ids=[rid],
+        confidence_note="note",
+    )
+    _score_bids([bid], ledger)
+    assert bid.grounding_scores[rid] == 1.0
+
+
+def test_score_bids_skips_sources_with_no_excerpt_text():
+    from backend.interpretation_swarm import InterpretationBid
+    from backend.section_graph import _score_bids
+
+    ledger = CitationLedger()
+    rid = ledger.register(source_type="label", title="X", url="https://x/1")  # no excerpt_text
+    bid = InterpretationBid(stance="adverse", interpretation_text="claim", reference_ids=[rid], confidence_note="n")
+    _score_bids([bid], ledger)
+    assert bid.grounding_scores == {}
+
+
 def test_process_node_result_marks_content_filtered_without_fabricating_text():
     class FakeFilteredResult:
         stop_reason = "content_filtered"
@@ -123,25 +172,26 @@ def test_full_graph_runs_end_to_end_with_no_hallucinations_or_dealbreaker_flags(
     excerpt_lines = []
     for item in evidence:
         if item.label.nonclinical_toxicology:
+            excerpt_text = " ".join(item.label.nonclinical_toxicology)[:1200]
             rid = ledger.register(
                 source_type="label",
                 title=f"{item.label.drug_name} label -- Nonclinical Toxicology",
                 url=item.label.source_url,
                 application_number=item.label.application_number,
+                excerpt_text=excerpt_text,
             )
-            excerpt_lines.append(
-                f"[{rid}] ({item.label.drug_name}): "
-                + " ".join(item.label.nonclinical_toxicology)[:1200]
-            )
+            excerpt_lines.append(f"[{rid}] ({item.label.drug_name}): " + excerpt_text)
 
     precedent = get_precedent("GLP-1R")
+    genetics_excerpt = precedent.phenotype_summary
     genetics_ref = ledger.register(
         source_type="curated",
         title="Curated knockout-precedent dataset",
         url="internal://genetics-precedent/GLP-1R",
         curated=True,
+        excerpt_text=genetics_excerpt,
     )
-    excerpt_lines.append(f"[{genetics_ref}] (curated, GEMOCKT/KURATIERT): {precedent.phenotype_summary}")
+    excerpt_lines.append(f"[{genetics_ref}] (curated, GEMOCKT/KURATIERT): {genetics_excerpt}")
 
     task_context = (
         f"Target: GLP-1R. Resolved drugs: {', '.join(resolution.drug_names[:2])}. "
@@ -150,11 +200,16 @@ def test_full_graph_runs_end_to_end_with_no_hallucinations_or_dealbreaker_flags(
 
     results, bids = run_section_graph(ledger, task_context=task_context)
 
-    assert set(results.keys()) == set(SECTION_PROMPTS.keys())
+    # The full 1-7 report section set -- SECTION_PROMPTS alone is {1,2,3,4,6,7}
+    # (section 5 is the nested swarm, not its own prompt entry), so checking
+    # against SECTION_PROMPTS.keys() would be blind to section 5 going missing
+    # entirely, which is exactly the bug this assertion is written to catch.
+    assert set(results.keys()) == {1, 2, 3, 4, 5, 6, 7}
     for number, result in results.items():
         assert result.hallucinated_reference_ids == [], f"section {number} hallucinated a reference"
         assert result.dealbreaker_flags == [], f"section {number} tripped a dealbreaker"
         assert len(result.section.html_body) > 20
 
     assert len(bids) == 4
+    assert all(bid.grounding_scores for bid in bids), "every bid should have at least one scored citation"
     print(f"\nFull graph run took {time.time() - t0:.1f}s")
