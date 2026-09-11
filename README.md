@@ -50,6 +50,8 @@ One HTTP request streams the whole run over Server-Sent Events: progress per sta
 
 The three curated demo targets are pre-computed and served from cache with a visible "served from a pre-computed demo run" banner — a live Bedrock call per visitor click is not sustainable for a project that has to stay freely testable for weeks after submission, and this is the mechanism that keeps it so. Any other target name runs the full live pipeline.
 
+**Known limitation:** the live-run rate limit is tracked in each function instance's own process memory, not a shared store. Vercel can route concurrent requests to different instances, each with an independent lock and timestamp, so two simultaneous live runs on different instances are not serialized against each other the way the single-process rate limit intends. The AWS billing alarm (Bedrock/AgentCore, scoped to this project) is the actual backstop against runaway spend; closing the gap properly would need an external shared store (Redis, DynamoDB) coordinating across instances, which was out of scope for this build.
+
 ## Tech stack
 
 - **AWS Strands Agents SDK** (Python) — `Graph` (seven section writers) and `Swarm` (four interpretation agents), nested as described above
