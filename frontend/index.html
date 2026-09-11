@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>First Pass</title>
+<style>
+  body {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    max-width: 640px;
+    margin: 8vh auto 4rem;
+    padding: 0 1.5rem;
+    color: #1a1d23;
+  }
+  h1 { font-size: 1.6rem; margin-bottom: 0.2rem; }
+  p.tagline { color: #5b6472; margin-top: 0; }
+  .input-row { display: flex; gap: 0.6rem; margin: 2rem 0 1.5rem; }
+  input[type=text] {
+    flex: 1;
+    font-size: 1.1rem;
+    padding: 0.7rem 0.9rem;
+    border: 2px solid #1a1d23;
+    border-radius: 6px;
+  }
+  button {
+    font-size: 1.05rem;
+    padding: 0.7rem 1.4rem;
+    background: #1f4e8c;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  button:disabled { background: #9aa5b1; cursor: default; }
+  ul.progress { list-style: none; padding: 0; }
+  ul.progress li {
+    padding: 0.4rem 0;
+    color: #9aa5b1;
+    font-size: 0.95rem;
+  }
+  ul.progress li.running { color: #1f4e8c; font-weight: 600; }
+  ul.progress li.done { color: #1e7a34; }
+  ul.progress li.pending { color: #b3261e; }
+  ul.progress li.empty { color: #b3261e; }
+  #report-frame {
+    width: 100%;
+    height: 80vh;
+    border: 1px solid #d8dce2;
+    border-radius: 8px;
+    margin-top: 1.5rem;
+    display: none;
+  }
+  #error-box {
+    display: none;
+    background: #fce8e6;
+    color: #b3261e;
+    padding: 0.8rem 1rem;
+    border-radius: 6px;
+    margin-top: 1rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>First Pass</h1>
+<p class="tagline">Target in. Cited Target Safety Assessment out.</p>
+
+<div class="input-row">
+  <input type="text" id="target-input" placeholder="e.g. GLP-1R, HER2, KRAS" autofocus>
+  <button id="submit-btn">Generate</button>
+</div>
+
+<ul class="progress" id="progress-list"></ul>
+<div id="error-box"></div>
+<iframe id="report-frame"></iframe>
+
+<script>
+const STAGE_LABELS = {
+  target_resolution: "Resolving target to approved drug names",
+  evidence_retrieval: "Retrieving FDA label & review evidence",
+  genetics_precedent: "Loading genetic/knockout precedent",
+  interpretation_swarm: "Four-agent adversity interpretation",
+  section_graph: "Writing report sections",
+  evaluations: "Running AgentCore evaluations",
+  report_render: "Rendering report",
+};
+
+const input = document.getElementById("target-input");
+const button = document.getElementById("submit-btn");
+const progressList = document.getElementById("progress-list");
+const errorBox = document.getElementById("error-box");
+const reportFrame = document.getElementById("report-frame");
+
+function resetUI() {
+  progressList.innerHTML = "";
+  errorBox.style.display = "none";
+  errorBox.textContent = "";
+  reportFrame.style.display = "none";
+  reportFrame.src = "about:blank";
+}
+
+function ensureRow(stage) {
+  let row = document.getElementById("stage-" + stage);
+  if (!row) {
+    row = document.createElement("li");
+    row.id = "stage-" + stage;
+    row.textContent = STAGE_LABELS[stage] || stage;
+    progressList.appendChild(row);
+  }
+  return row;
+}
+
+async function submitTarget() {
+  const target = input.value.trim();
+  if (!target) return;
+
+  resetUI();
+  button.disabled = true;
+
+  const startResp = await fetch("/api/reports", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ target }),
+  });
+  if (!startResp.ok) {
+    errorBox.textContent = "Could not start the run.";
+    errorBox.style.display = "block";
+    button.disabled = false;
+    return;
+  }
+  const { run_id } = await startResp.json();
+
+  const source = new EventSource(`/api/reports/${run_id}/events`);
+  source.onmessage = (msg) => {
+    const evt = JSON.parse(msg.data);
+    if (evt.stage === "_end") {
+      source.close();
+      button.disabled = false;
+      if (evt.status === "done") {
+        reportFrame.src = `/api/reports/${run_id}/report`;
+        reportFrame.style.display = "block";
+      } else {
+        errorBox.textContent = "Run failed: " + (evt.detail || "unknown error");
+        errorBox.style.display = "block";
+      }
+      return;
+    }
+    const row = ensureRow(evt.stage);
+    row.className = evt.status;
+    const label = STAGE_LABELS[evt.stage] || evt.stage;
+    row.textContent = evt.detail ? `${label} — ${evt.detail}` : label;
+  };
+  source.onerror = () => {
+    source.close();
+    button.disabled = false;
+  };
+}
+
+button.addEventListener("click", submitTarget);
+input.addEventListener("keydown", (e) => { if (e.key === "Enter") submitTarget(); });
+</script>
+
+</body>
+</html>
