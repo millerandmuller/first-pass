@@ -40,6 +40,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+_HEARTBEAT_INTERVAL_SECONDS = 15
+
 # Best-effort live-run rate limit (F13 rule constraint): a live pipeline run
 # touches real Bedrock/AgentCore spend, so cap concurrency and enforce a
 # minimum gap between live runs process-wide. This is best-effort, not a
@@ -95,7 +97,17 @@ def _generate_events(target: str):
     thread.start()
 
     while True:
-        event = q.get()
+        try:
+            # A stage like section_graph runs for 60-90s with no progress
+            # event in between (it's one call into the multi-agent graph);
+            # a silent SSE connection that long risks an idle-connection
+            # timeout at an intermediate proxy/CDN hop. A `: comment\n\n`
+            # line is a no-op per the SSE spec -- it resets any such idle
+            # timer without the frontend needing to handle a new event type.
+            event = q.get(timeout=_HEARTBEAT_INTERVAL_SECONDS)
+        except queue.Empty:
+            yield ": heartbeat\n\n"
+            continue
         if event["stage"] == "_end":
             break
         yield _sse(event)

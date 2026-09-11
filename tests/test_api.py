@@ -21,8 +21,12 @@ client = TestClient(app)
 
 
 def _read_sse_events(response) -> list[dict]:
+    return _read_sse_events_from_text("\n".join(response.iter_lines()))
+
+
+def _read_sse_events_from_text(raw: str) -> list[dict]:
     events = []
-    for line in response.iter_lines():
+    for line in raw.splitlines():
         if line.startswith("data: "):
             events.append(json.loads(line[len("data: "):]))
     return events
@@ -64,6 +68,35 @@ def test_demo_target_is_served_from_cache_not_a_live_run(tmp_path, monkeypatch):
     assert stages == ["cache", "_report"]  # no live pipeline stages at all
     assert "cached HER2 report" in events[-1]["html"]
     assert "pre-computed" in events[-1]["html"].lower()  # the honest cache banner
+
+
+def test_heartbeat_comments_keep_a_slow_stage_alive_without_becoming_events(monkeypatch):
+    # A stage that runs long with no progress event (e.g. section_graph's
+    # 60-90s single call) must not leave the SSE connection silent long
+    # enough to trip an idle-connection timeout at an intermediate proxy.
+    import time as time_module
+
+    from backend.pipeline import PipelineResult
+
+    monkeypatch.setattr(api_module, "_HEARTBEAT_INTERVAL_SECONDS", 0.05)
+
+    def slow_fake_pipeline(target, on_progress):
+        on_progress("target_resolution", "done", None)
+        time_module.sleep(0.3)  # several heartbeat intervals with no event
+        return PipelineResult(report=None, target_resolution=None, is_partial=False)
+
+    monkeypatch.setattr(api_module, "run_pipeline", slow_fake_pipeline)
+    monkeypatch.setattr(api_module, "render_html", lambda report: "<p>stub</p>")
+
+    with client.stream("GET", "/api/generate", params={"target": "PD-L1"}) as resp:
+        raw = resp.read().decode()
+
+    assert raw.count(": heartbeat\n\n") >= 2
+    # heartbeats are SSE comments (no "data:" prefix) -- confirm EventSource
+    # would never surface them as parsed events by checking none of the
+    # actual data-events accidentally look like a heartbeat.
+    data_events = _read_sse_events_from_text(raw)
+    assert all(e.get("stage") != "heartbeat" for e in data_events)
 
 
 def test_live_run_rate_limit_is_enforced_between_consecutive_calls(monkeypatch):
