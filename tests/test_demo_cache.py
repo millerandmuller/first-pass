@@ -1,6 +1,16 @@
-"""Tests for F11 -- demo target cache."""
+"""Tests for F11 -- demo target cache.
 
-import shutil
+Every test that writes redirects demo_cache._CACHE_DIR to pytest's isolated
+tmp_path via monkeypatch. A real (bad) earlier version of this file used the
+real module-level _CACHE_DIR directly -- test_save_then_load_roundtrips
+called save_cached_report("HER2", ...), overwriting the actual committed
+demo_data/report_cache/HER2.html with fake test content, and an autouse
+cleanup fixture then deleted the whole real cache directory (GLP-1R.html,
+KRAS.html included) after every test in this file ran. Caught when an
+examiner-features agent found the live deployment's real demo cache broken
+and traced it back to this file wiping the committed fixtures locally
+during an unrelated test run. Restored via `git checkout` and fixed here.
+"""
 
 import pytest
 
@@ -8,10 +18,8 @@ from backend import demo_cache
 
 
 @pytest.fixture(autouse=True)
-def _clean_cache_dir():
-    yield
-    if __import__("os").path.exists(demo_cache._CACHE_DIR):
-        shutil.rmtree(demo_cache._CACHE_DIR)
+def _isolated_cache_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr(demo_cache, "_CACHE_DIR", str(tmp_path))
 
 
 def test_is_demo_target_matches_case_and_space_insensitively():
