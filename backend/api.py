@@ -22,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from backend.demo_cache import CachedReport, cache_banner_html, load_cached_report
 from backend.pipeline import PipelineResult, run_pipeline
 from backend.report_renderer import render_html
 
@@ -41,6 +42,7 @@ class RunState:
     status: str = "running"  # "running" | "done" | "error"
     events: list[dict] = field(default_factory=list)
     result: Optional[PipelineResult] = None
+    cached: Optional[CachedReport] = None
     error: Optional[str] = None
     _subscribers: list[queue.Queue] = field(default_factory=list)
 
@@ -65,6 +67,19 @@ _RUNS: dict[str, RunState] = {}
 def _execute(run: RunState) -> None:
     def on_progress(stage: str, status: str, detail: Optional[str]) -> None:
         run.publish({"stage": stage, "status": status, "detail": detail})
+
+    # F11/F13: the three curated demo targets are served from a pre-computed
+    # run instead of invoking the live pipeline per request -- see
+    # backend/demo_cache.py and DECISION_LOG.md (project must stay freely
+    # testable through 2026-10-08; a live Bedrock call per juror click is
+    # not sustainable). Any other target still runs live, uncached.
+    cached = load_cached_report(run.target)
+    if cached is not None:
+        run.cached = cached
+        run.status = "done"
+        run.publish({"stage": "cache", "status": "done", "detail": f"served from {cached.run_label}"})
+        run.publish({"stage": "_end", "status": "done"})
+        return
 
     try:
         result = run_pipeline(run.target, on_progress=on_progress)
@@ -118,6 +133,8 @@ def get_report(run_id: str) -> str:
         raise HTTPException(425, "report not ready yet")
     if run.status == "error":
         raise HTTPException(500, run.error or "pipeline failed")
+    if run.cached is not None:
+        return cache_banner_html(run.cached) + run.cached.html
     return render_html(run.result.report)
 
 
