@@ -77,6 +77,7 @@
 <script>
 const STAGE_LABELS = {
   cache: "Serving pre-computed demo report",
+  rate_limit: "Waiting for rate limit",
   target_resolution: "Resolving target to approved drug names",
   evidence_retrieval: "Retrieving FDA label & review evidence",
   genetics_precedent: "Loading genetic/knockout precedent",
@@ -96,7 +97,7 @@ function resetUI() {
   errorBox.style.display = "none";
   errorBox.textContent = "";
   reportFrame.style.display = "none";
-  reportFrame.src = "about:blank";
+  reportFrame.srcdoc = "";
 }
 
 function ensureRow(stage) {
@@ -110,41 +111,37 @@ function ensureRow(stage) {
   return row;
 }
 
-async function submitTarget() {
+function submitTarget() {
   const target = input.value.trim();
   if (!target) return;
 
   resetUI();
   button.disabled = true;
 
-  const startResp = await fetch("/api/reports", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ target }),
-  });
-  if (!startResp.ok) {
-    errorBox.textContent = "Could not start the run.";
-    errorBox.style.display = "block";
-    button.disabled = false;
-    return;
-  }
-  const { run_id } = await startResp.json();
-
-  const source = new EventSource(`/api/reports/${run_id}/events`);
+  // One open connection for the whole run: progress events, then a single
+  // terminal event carrying the report HTML (or an error) -- no separate
+  // start/poll/fetch requests, so there is no cross-request state to keep
+  // in sync (this app can run on a serverless deployment where separate
+  // requests may land on different instances).
+  const source = new EventSource(`/api/generate?target=${encodeURIComponent(target)}`);
   source.onmessage = (msg) => {
     const evt = JSON.parse(msg.data);
-    if (evt.stage === "_end") {
+
+    if (evt.stage === "_report") {
       source.close();
       button.disabled = false;
-      if (evt.status === "done") {
-        reportFrame.src = `/api/reports/${run_id}/report`;
-        reportFrame.style.display = "block";
-      } else {
-        errorBox.textContent = "Run failed: " + (evt.detail || "unknown error");
-        errorBox.style.display = "block";
-      }
+      reportFrame.srcdoc = evt.html;
+      reportFrame.style.display = "block";
       return;
     }
+    if (evt.stage === "_report_error") {
+      source.close();
+      button.disabled = false;
+      errorBox.textContent = "Run failed: " + (evt.detail || "unknown error");
+      errorBox.style.display = "block";
+      return;
+    }
+
     const row = ensureRow(evt.stage);
     row.className = evt.status;
     const label = STAGE_LABELS[evt.stage] || evt.stage;
@@ -153,6 +150,10 @@ async function submitTarget() {
   source.onerror = () => {
     source.close();
     button.disabled = false;
+    if (!errorBox.textContent) {
+      errorBox.textContent = "Connection to the server was lost.";
+      errorBox.style.display = "block";
+    }
   };
 }
 

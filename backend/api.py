@@ -1,141 +1,117 @@
 """F10 backend -- one field, one button, one progress indicator, no chat.
 
-In-memory run store only (brief Section 6: "file cache instead of DB, no
-auth" -- deliberately quick and dirty here; the retrieval/scoring/citation
-layers underneath are the carefully-built part). Runs are not persisted
-across process restarts, which is fine for a single-session demo.
+Single streaming request per generation (GET /api/generate?target=X), not a
+POST-then-poll-a-separate-endpoint design: a serverless deployment (Vercel)
+may route each HTTP request to a different function instance with no shared
+memory, so coordinating a run_id across three separate requests via an
+in-memory dict -- the original design, fine for a long-lived local uvicorn
+process -- would silently break in production. One open SSE connection for
+the whole run (progress events, then a final event carrying the report HTML
+itself) needs no cross-request state at all.
+
+No auth, no persisted user data (brief Section 6/8) -- deliberately quick
+and dirty here; the retrieval/scoring/citation layers underneath are the
+carefully-built part.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import queue
 import threading
-import uuid
-from dataclasses import dataclass, field
+import time
 from typing import Optional
-
-import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.demo_cache import CachedReport, cache_banner_html, load_cached_report
-from backend.pipeline import PipelineResult, run_pipeline
+from backend.demo_cache import cache_banner_html, load_cached_report
+from backend.pipeline import run_pipeline
 from backend.report_renderer import render_html
 
 app = FastAPI(title="First Pass API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # no auth, no user data at rest -- see brief Section 6/8
-    allow_methods=["GET", "POST"],
+    allow_origins=["*"],
+    allow_methods=["GET"],
     allow_headers=["*"],
 )
 
-
-@dataclass
-class RunState:
-    run_id: str
-    target: str
-    status: str = "running"  # "running" | "done" | "error"
-    events: list[dict] = field(default_factory=list)
-    result: Optional[PipelineResult] = None
-    cached: Optional[CachedReport] = None
-    error: Optional[str] = None
-    _subscribers: list[queue.Queue] = field(default_factory=list)
-
-    def publish(self, event: dict) -> None:
-        self.events.append(event)
-        for sub in self._subscribers:
-            sub.put(event)
-
-    def subscribe(self) -> queue.Queue:
-        q: queue.Queue = queue.Queue()
-        for event in self.events:  # replay history for a late subscriber
-            q.put(event)
-        if self.status != "running":
-            q.put({"stage": "_end", "status": self.status})
-        self._subscribers.append(q)
-        return q
+# Best-effort live-run rate limit (F13 rule constraint): a live pipeline run
+# touches real Bedrock/AgentCore spend, so cap concurrency and enforce a
+# minimum gap between live runs process-wide. This is best-effort, not a
+# hard security boundary -- a serverless deployment can have multiple warm
+# instances that would each track this independently. The actual safety net
+# is the AWS billing alarm (see DECISION_LOG.md), which is instance-independent.
+_LIVE_RUN_LOCK = threading.Lock()
+_MIN_SECONDS_BETWEEN_LIVE_RUNS = 30
+_last_live_run_started_at = 0.0
 
 
-_RUNS: dict[str, RunState] = {}
+def _sse(event: dict) -> str:
+    return f"data: {json.dumps(event)}\n\n"
 
 
-def _execute(run: RunState) -> None:
-    def on_progress(stage: str, status: str, detail: Optional[str]) -> None:
-        run.publish({"stage": stage, "status": status, "detail": detail})
-
-    # F11/F13: the three curated demo targets are served from a pre-computed
-    # run instead of invoking the live pipeline per request -- see
-    # backend/demo_cache.py and DECISION_LOG.md (project must stay freely
-    # testable through 2026-10-08; a live Bedrock call per juror click is
-    # not sustainable). Any other target still runs live, uncached.
-    cached = load_cached_report(run.target)
+def _generate_events(target: str):
+    """The single SSE stream for one generation: progress events, then
+    exactly one terminal event carrying either the report HTML or an error."""
+    cached = load_cached_report(target)
     if cached is not None:
-        run.cached = cached
-        run.status = "done"
-        run.publish({"stage": "cache", "status": "done", "detail": f"served from {cached.run_label}"})
-        run.publish({"stage": "_end", "status": "done"})
+        yield _sse({"stage": "cache", "status": "done", "detail": f"served from {cached.run_label}"})
+        yield _sse({"stage": "_report", "html": cache_banner_html(cached) + cached.html})
         return
 
-    try:
-        result = run_pipeline(run.target, on_progress=on_progress)
-        run.result = result
-        run.status = "done"
-        run.publish({"stage": "_end", "status": "done"})
-    except Exception as exc:  # a crashed run must surface, never hang the UI forever
-        run.status = "error"
-        run.error = str(exc)
-        run.publish({"stage": "_end", "status": "error", "detail": str(exc)})
+    global _last_live_run_started_at
+    with _LIVE_RUN_LOCK:
+        wait_needed = _MIN_SECONDS_BETWEEN_LIVE_RUNS - (time.time() - _last_live_run_started_at)
+        if wait_needed > 0:
+            yield _sse(
+                {
+                    "stage": "rate_limit",
+                    "status": "running",
+                    "detail": f"waiting {wait_needed:.0f}s before starting a live run",
+                }
+            )
+            time.sleep(wait_needed)
+        _last_live_run_started_at = time.time()
+
+    q: queue.Queue = queue.Queue()
+    result_holder: dict = {}
+
+    def on_progress(stage: str, status: str, detail: Optional[str]) -> None:
+        q.put({"stage": stage, "status": status, "detail": detail})
+
+    def worker() -> None:
+        try:
+            result_holder["result"] = run_pipeline(target, on_progress=on_progress)
+        except Exception as exc:  # a crashed run must surface, never hang the UI forever
+            result_holder["error"] = str(exc)
+        q.put({"stage": "_end", "status": "error" if "error" in result_holder else "done"})
+
+    thread = threading.Thread(target=worker, daemon=True)
+    thread.start()
+
+    while True:
+        event = q.get()
+        if event["stage"] == "_end":
+            break
+        yield _sse(event)
+
+    if "error" in result_holder:
+        yield _sse({"stage": "_report_error", "detail": result_holder["error"]})
+    else:
+        yield _sse({"stage": "_report", "html": render_html(result_holder["result"].report)})
 
 
-@app.post("/api/reports")
-def start_report(payload: dict) -> dict:
-    target = (payload.get("target") or "").strip()
+@app.get("/api/generate")
+def generate(target: str) -> StreamingResponse:
+    target = (target or "").strip()
     if not target:
         raise HTTPException(400, "target is required")
-
-    run_id = uuid.uuid4().hex[:12]
-    run = RunState(run_id=run_id, target=target)
-    _RUNS[run_id] = run
-
-    thread = threading.Thread(target=_execute, args=(run,), daemon=True)
-    thread.start()
-    return {"run_id": run_id}
-
-
-@app.get("/api/reports/{run_id}/events")
-def stream_events(run_id: str) -> StreamingResponse:
-    run = _RUNS.get(run_id)
-    if run is None:
-        raise HTTPException(404, "unknown run_id")
-
-    def event_stream():
-        q = run.subscribe()
-        while True:
-            event = q.get()
-            yield f"data: {json.dumps(event)}\n\n"
-            if event.get("stage") == "_end":
-                break
-
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
-
-
-@app.get("/api/reports/{run_id}/report", response_class=HTMLResponse)
-def get_report(run_id: str) -> str:
-    run = _RUNS.get(run_id)
-    if run is None:
-        raise HTTPException(404, "unknown run_id")
-    if run.status == "running":
-        raise HTTPException(425, "report not ready yet")
-    if run.status == "error":
-        raise HTTPException(500, run.error or "pipeline failed")
-    if run.cached is not None:
-        return cache_banner_html(run.cached) + run.cached.html
-    return render_html(run.result.report)
+    return StreamingResponse(_generate_events(target), media_type="text/event-stream")
 
 
 @app.get("/api/health")
