@@ -8,7 +8,12 @@ from backend.citation_ledger import CitationLedger
 from backend.genetics_precedent import get_precedent
 from backend.openfda_client import gather_evidence_for_drugs
 from backend.regulatory_reasoning import bedrock_claude_is_reachable
-from backend.section_graph import SECTION_PROMPTS, _check_dealbreakers, _text_to_safe_html
+from backend.section_graph import (
+    SECTION_PROMPTS,
+    _check_dealbreakers,
+    _process_node_result,
+    _text_to_safe_html,
+)
 from backend.target_resolution import resolve_target
 
 
@@ -59,6 +64,48 @@ def test_check_dealbreakers_flags_explicit_noael_setting():
 
 def test_check_dealbreakers_silent_on_clean_text():
     assert _check_dealbreakers(6, "Multiple interpretations exist; the debate is summarized.") == []
+
+
+def test_process_node_result_marks_content_filtered_without_fabricating_text():
+    class FakeFilteredResult:
+        stop_reason = "content_filtered"
+
+    ledger = CitationLedger()
+    result = _process_node_result(3, "Class Effects & Known Target Toxicities", FakeFilteredResult(), ledger)
+    assert result.content_filtered is True
+    assert "CONTENT FILTER" in result.section.html_body
+    assert result.hallucinated_reference_ids == []
+
+
+@pytest.mark.skipif(
+    not bedrock_claude_is_reachable(),
+    reason="Bedrock Anthropic access unavailable -- see DECISION_LOG.md 2026-09-11",
+)
+def test_process_node_result_handles_a_real_content_filtered_agent_call():
+    # Verified 2026-09-11: this exact phrasing pattern deterministically
+    # trips Bedrock's content filter with an empty response -- see
+    # DECISION_LOG.md. Confirms the real AgentResult shape (not just a fake
+    # stand-in) is handled correctly.
+    from strands import Agent
+    from strands.models import BedrockModel
+
+    from backend.config import AWS_REGION, BEDROCK_MODEL_ID
+
+    model = BedrockModel(model_id=BEDROCK_MODEL_ID, region_name=AWS_REGION)
+    agent = Agent(model=model, system_prompt="You are a regulatory toxicology reviewer.")
+    agent_result = agent(
+        "The antibody binds the HER2 epitope with high affinity in cynomolgus "
+        "monkey but not in rat tissue."
+    )
+    assert agent_result.stop_reason == "content_filtered", (
+        "this test's premise (a known content-filter trigger) no longer holds -- "
+        "Bedrock's filter behavior may have changed; re-verify before trusting this test"
+    )
+
+    ledger = CitationLedger()
+    result = _process_node_result(1, "Target Profile & Biological Function", agent_result, ledger)
+    assert result.content_filtered is True
+    assert "CONTENT FILTER" in result.section.html_body
 
 
 @pytest.mark.skipif(

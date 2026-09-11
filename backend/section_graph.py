@@ -104,6 +104,16 @@ class SectionWriteResult:
     section: ReportSection
     hallucinated_reference_ids: list[str]
     dealbreaker_flags: list[str]
+    content_filtered: bool = False
+
+
+CONTENT_FILTERED_NOTE = (
+    "[CONTENT FILTER] This section's content was blocked by the model provider's "
+    "safety filter before any text was produced. No content is fabricated in its "
+    "place -- verified 2026-09-11 that certain legitimate scientific phrasing "
+    "(e.g. cross-species epitope-binding language) can trigger this deterministically; "
+    "see DECISION_LOG.md. Rephrasing the underlying evidence excerpt is the usual fix."
+)
 
 
 def _text_to_safe_html(text: str, ledger: CitationLedger) -> tuple[str, list[str]]:
@@ -162,6 +172,36 @@ def build_section_graph(ledger: CitationLedger):
     return builder.build(), bids
 
 
+def _process_node_result(
+    number: int, title: str, agent_result, ledger: CitationLedger
+) -> SectionWriteResult:
+    """Turn one graph node's raw AgentResult into a SectionWriteResult.
+
+    Verified 2026-09-11: Bedrock's content filter deterministically blocks
+    some legitimate cross-species biology phrasing (e.g. "binds the [X]
+    epitope ... in cynomolgus ... tissue") with an empty response and
+    stop_reason="content_filtered" -- no exception raised, no account
+    Guardrail involved. A silent empty section here would look like a bug
+    rather than the honest gap it is.
+    """
+    if getattr(agent_result, "stop_reason", None) == "content_filtered":
+        return SectionWriteResult(
+            section=ReportSection(number, title, f"<p>{html.escape(CONTENT_FILTERED_NOTE)}</p>"),
+            hallucinated_reference_ids=[],
+            dealbreaker_flags=[],
+            content_filtered=True,
+        )
+
+    raw_text = str(agent_result)
+    html_body, hallucinated = _text_to_safe_html(raw_text, ledger)
+    dealbreaker_flags = _check_dealbreakers(number, raw_text)
+    return SectionWriteResult(
+        section=ReportSection(number, title, html_body),
+        hallucinated_reference_ids=hallucinated,
+        dealbreaker_flags=dealbreaker_flags,
+    )
+
+
 def run_section_graph(
     ledger: CitationLedger,
     *,
@@ -174,13 +214,6 @@ def run_section_graph(
     results: dict[int, SectionWriteResult] = {}
     for number, (title, _prompt) in SECTION_PROMPTS.items():
         node_result = graph_result.results[f"section_{number}"]
-        raw_text = str(node_result.result)
-        html_body, hallucinated = _text_to_safe_html(raw_text, ledger)
-        dealbreaker_flags = _check_dealbreakers(number, raw_text)
-        results[number] = SectionWriteResult(
-            section=ReportSection(number, title, html_body),
-            hallucinated_reference_ids=hallucinated,
-            dealbreaker_flags=dealbreaker_flags,
-        )
+        results[number] = _process_node_result(number, title, node_result.result, ledger)
 
     return results, bids
