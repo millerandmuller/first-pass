@@ -57,6 +57,20 @@ def _sse(event: dict) -> str:
     return f"data: {json.dumps(event)}\n\n"
 
 
+def _friendly_error_message(exc: Exception) -> str:
+    """Bedrock throttling is a real, observed-in-production failure mode (not
+    hypothetical -- a live demo rehearsal tripped it under ordinary sequential
+    use, no adversarial load). The raw botocore ClientError string ("An error
+    occurred (ThrottlingException) when calling the ConverseStream operation
+    (reached max retries: 4)...") reads to a non-technical user as a crash
+    rather than a wait-and-retry situation, so it gets a plain-English
+    substitute here. Anything else surfaces as-is."""
+    text = str(exc)
+    if "ThrottlingException" in text or "Too many requests" in text:
+        return "Bedrock is rate-limiting requests right now. Please wait a minute and try again."
+    return text
+
+
 def _generate_events(target: str):
     """The single SSE stream for one generation: progress events, then
     exactly one terminal event carrying either the report HTML or an error."""
@@ -66,7 +80,6 @@ def _generate_events(target: str):
         yield _sse({"stage": "_report", "html": cache_banner_html(cached) + cached.html})
         return
 
-    global _last_live_run_started_at
     with _LIVE_RUN_LOCK:
         wait_needed = _MIN_SECONDS_BETWEEN_LIVE_RUNS - (time.time() - _last_live_run_started_at)
         if wait_needed > 0:
@@ -78,19 +91,28 @@ def _generate_events(target: str):
                 }
             )
             time.sleep(wait_needed)
-        _last_live_run_started_at = time.time()
+        # The cooldown timestamp is NOT stamped here. A garbage target that
+        # resolves to "not found" returns in well under a second with no
+        # Bedrock call at all -- stamping "now" before resolution even runs
+        # would make that free, instant request consume the same 30s cooldown
+        # as a real ~150s Bedrock-costing run. It is stamped from on_progress
+        # below instead, the first time target resolution actually succeeds.
 
     q: queue.Queue = queue.Queue()
     result_holder: dict = {}
 
     def on_progress(stage: str, status: str, detail: Optional[str]) -> None:
+        if stage == "target_resolution" and status == "done":
+            global _last_live_run_started_at
+            with _LIVE_RUN_LOCK:
+                _last_live_run_started_at = time.time()
         q.put({"stage": stage, "status": status, "detail": detail})
 
     def worker() -> None:
         try:
             result_holder["result"] = run_pipeline(target, on_progress=on_progress)
         except Exception as exc:  # a crashed run must surface, never hang the UI forever
-            result_holder["error"] = str(exc)
+            result_holder["error"] = _friendly_error_message(exc)
         q.put({"stage": "_end", "status": "error" if "error" in result_holder else "done"})
 
     thread = threading.Thread(target=worker, daemon=True)

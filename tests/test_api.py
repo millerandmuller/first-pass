@@ -123,3 +123,53 @@ def test_live_run_rate_limit_is_enforced_between_consecutive_calls(monkeypatch):
 
     assert events[0]["stage"] == "rate_limit"
     assert events[-1]["stage"] == "_report"
+
+
+def test_a_not_found_target_does_not_consume_the_live_run_cooldown(monkeypatch):
+    # The cooldown exists to space out real Bedrock-costing runs. A target
+    # that resolves to "not found" returns in well under a second with no
+    # Bedrock call at all -- it must not burn the same 30s cooldown slot a
+    # real live run would, or a garbage/mistyped target starves the next
+    # genuine visitor's live run of its rate-limit window for no reason.
+    from backend.pipeline import PipelineResult
+
+    def fake_not_found_pipeline(target, on_progress):
+        on_progress("target_resolution", "empty", f"no drug names resolved for '{target}'")
+        return PipelineResult(report=None, target_resolution=None, is_partial=False)
+
+    monkeypatch.setattr(api_module, "run_pipeline", fake_not_found_pipeline)
+    monkeypatch.setattr(api_module, "render_html", lambda report: "<p>stub</p>")
+    monkeypatch.setattr(api_module, "_last_live_run_started_at", 0.0)
+    monkeypatch.setattr(api_module, "_MIN_SECONDS_BETWEEN_LIVE_RUNS", 10_000)
+
+    with client.stream("GET", "/api/generate", params={"target": "ZZZ-GARBAGE"}) as resp:
+        events = _read_sse_events(resp)
+
+    # _last_live_run_started_at is 0.0 (year 1970) so no wait is ever
+    # triggered for THIS request either way -- the real assertion is that
+    # a not-found run does not bump the timestamp forward for the NEXT one.
+    assert events[0]["stage"] != "rate_limit"
+    assert api_module._last_live_run_started_at == 0.0
+
+
+def test_bedrock_throttling_surfaces_a_plain_english_message_not_the_raw_exception(monkeypatch):
+    # Observed live in production (2026-09-11 demo rehearsal): an ordinary,
+    # non-adversarial second live run tripped Bedrock's ConverseStream
+    # throttling and the raw botocore ClientError string reached the user
+    # via the error box, reading as a crash rather than "try again shortly."
+    def fake_throttled_pipeline(target, on_progress):
+        raise Exception(
+            "An error occurred (ThrottlingException) when calling the ConverseStream "
+            "operation (reached max retries: 4): Too many requests, please wait before "
+            "trying again."
+        )
+
+    monkeypatch.setattr(api_module, "run_pipeline", fake_throttled_pipeline)
+    monkeypatch.setattr(api_module, "_last_live_run_started_at", 0.0)
+
+    with client.stream("GET", "/api/generate", params={"target": "PD-L1"}) as resp:
+        events = _read_sse_events(resp)
+
+    assert events[-1]["stage"] == "_report_error"
+    assert "ThrottlingException" not in events[-1]["detail"]
+    assert "rate-limiting" in events[-1]["detail"].lower()

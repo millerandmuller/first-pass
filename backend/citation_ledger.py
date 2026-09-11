@@ -13,6 +13,7 @@ bibliography.
 
 from __future__ import annotations
 
+import html
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
@@ -106,12 +107,14 @@ class CitationLedger:
             badge = (
                 '<span class="curated-badge">GEMOCKT/KURATIERT</span>' if source.curated else ""
             )
-            app_no = f" ({source.application_number})" if source.application_number else ""
-            date = f" &mdash; {source.date}" if source.date else ""
+            title = html.escape(source.title)
+            url = html.escape(source.url)
+            app_no = f" ({html.escape(source.application_number)})" if source.application_number else ""
+            date = f" &mdash; {html.escape(source.date)}" if source.date else ""
             items.append(
                 f'<li id="ref-{source.reference_id}">'
                 f'<span class="ref-id">[{source.reference_id}]</span> '
-                f'<a href="{source.url}" target="_blank" rel="noopener">{source.title}</a>'
+                f'<a href="{url}" target="_blank" rel="noopener">{title}</a>'
                 f"{app_no}{date} {badge}</li>"
             )
         return '<ol class="bibliography">' + "".join(items) + "</ol>"

@@ -78,3 +78,23 @@ def test_application_number_and_date_appear_in_bibliography_entry():
     markdown = ledger.to_markdown()
     assert "NDA214801" in markdown
     assert "2022-11-08" in markdown
+
+
+def test_to_html_escapes_untrusted_source_fields():
+    # title/url/application_number/date ultimately trace back to openFDA
+    # label text, not developer-controlled strings, and to_html() renders
+    # via `{{ bibliography_html | safe }}` in the report template -- if any
+    # of these fields ever contained a stray "<script>" or a quote breaking
+    # out of the href attribute, it would render unescaped in the browser.
+    ledger = CitationLedger()
+    ledger.register(
+        source_type="label",
+        title='<script>alert(1)</script> "Drug" Label',
+        url='https://x/1"><script>alert(2)</script>',
+        application_number='<b>NDA1</b>',
+        date='<i>2022</i>',
+    )
+    html_out = ledger.to_html()
+    assert "<script>" not in html_out
+    assert "&lt;script&gt;" in html_out
+    assert 'href="https://x/1&quot;&gt;' in html_out
