@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "status": "GEMOCKT/KURATIERT",
+    "note": "Hand-curated from well-established developmental biology literature, not pulled from a live database. Marked as curated throughout the report -- never presented as an FDA/openFDA source. Covers the three confirmed demo targets plus a few generalization examples.",
+    "curated_by": "First Pass build, verified against public literature 2026-09-11",
+    "last_reviewed": "2026-09-11"
+  },
+  "targets": {
+    "GLP-1R": {
+      "gene_symbol": "Glp1r",
+      "knockout_viability": "viable",
+      "phenotype_summary": "Glp1r-null mice are viable and fertile with normal body weight on standard chow. They show mild glucose intolerance and a blunted insulin secretory response to oral glucose, consistent with GLP-1R's incretin role, along with altered gastric emptying kinetics in some studies. No embryonic lethality or major structural malformation is reported.",
+      "literature_note": "Scrocchi et al., Nat Med 1996 (original Glp1r-/- characterization); subsequent metabolic-phenotyping studies broadly consistent.",
+      "relevance_to_target_safety": "The viable, mild knockout phenotype argues against GLP-1R loss-of-function itself being catastrophic -- it supports interpreting on-target metabolic effects (e.g. GI, glycemic) as manageable/adaptive rather than a fundamental developmental liability. It does not speak to the rodent-specific thyroid C-cell finding, which is a gain-of-function/pharmacologic (receptor agonism) effect, not a loss-of-function one -- knockout precedent and pharmacologic-exposure findings answer different questions and should not be conflated in the report."
+    },
+    "HER2": {
+      "gene_symbol": "Erbb2",
+      "knockout_viability": "embryonic lethal",
+      "phenotype_summary": "Erbb2-null mice die in utero around embryonic day 10.5 due to failure of cardiac trabeculation and defects in cranial ganglia/neural crest derivatives. Conditional, cardiomyocyte-restricted knockout (surviving to adulthood) develops dilated cardiomyopathy, directly linking ERBB2 signaling to cardiac muscle maintenance in the adult heart.",
+      "literature_note": "Lee et al., Nature 1995 (germline lethality, cardiac trabeculation defect); Crone et al., Nat Med 2002 and Ozcelik et al., PNAS 2002 (conditional cardiac knockout -> dilated cardiomyopathy).",
+      "relevance_to_target_safety": "This is the single strongest piece of mechanistic precedent for the clinically observed HER2-targeted-therapy cardiotoxicity signal (e.g. trastuzumab-associated left ventricular dysfunction): genetic loss of ERBB2 signaling in cardiomyocytes is sufficient to cause cardiomyopathy in mice, independent of any drug. It directly supports the ADVERSE interpretation of cardiotoxicity findings for this target class, while the reversibility commonly seen clinically (unlike the fixed structural mouse knockout) supports the MONITORABLE/non-fatal framing -- both readings are grounded in real evidence, which is exactly the kind of genuine dispute Section 5 is built to surface."
+    },
+    "KRAS": {
+      "gene_symbol": "Kras",
+      "knockout_viability": "embryonic lethal",
+      "phenotype_summary": "Kras-null mice die in utero around embryonic day 12.5-14, with defects in fetal liver erythropoiesis and fetal liver development. Unlike its paralog Hras (dispensable -- Hras-null mice are viable and phenotypically near-normal), Kras is the essential RAS paralog during development, indicating the two genes are not functionally redundant despite similar biochemistry.",
+      "literature_note": "Johnson et al., Genes Dev 1997 and Koera et al., Oncogene 1997 (independent Kras germline knockouts, concordant embryonic-lethal phenotype); contrast with Ise et al., Oncogene 2000 (Hras-null viable).",
+      "relevance_to_target_safety": "This is precisely why KRAS is the deliberately sparse demo target: germline loss-of-function is lethal, so there is no viable adult knockout phenotype to reason from, and no FDA-approved therapy carries a broad 'KRAS' class MoA label (only narrow G12C-specific inhibitors exist, e.g. sotorasib/adagrasib, which are not captured by a generic KRAS search). The honest output here is a clearly labeled evidence gap, not an invented precedent."
+    }
+  }
+}
