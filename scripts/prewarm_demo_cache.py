@@ -16,7 +16,7 @@ sys.path.insert(0, ".")
 
 from backend.demo_cache import DEMO_TARGETS, save_cached_report
 from backend.pipeline import run_pipeline
-from backend.report_renderer import render_html
+from backend.report_renderer import render_html, report_to_dict
 
 
 def main() -> None:
@@ -31,7 +31,14 @@ def main() -> None:
         result = run_pipeline(target, on_progress=lambda s, st, d: print(f"  [{s}] {st} {d or ''}"))
         duration = time.time() - t0
         html = render_html(result.report)
-        save_cached_report(target, html, duration, args.run_label)
+        report_payload = report_to_dict(
+            result.report,
+            served="cached",
+            run_label=args.run_label,
+            duration_seconds=round(duration, 1),
+            nonclinical_label_count=result.nonclinical_label_count,
+        )
+        save_cached_report(target, html, duration, args.run_label, report_payload=report_payload)
         print(f"  -> {duration:.1f}s, {len(html)} bytes, is_partial={result.is_partial}")
 
 
