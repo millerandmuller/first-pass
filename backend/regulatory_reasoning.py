@@ -33,7 +33,8 @@ def answer_regulatory_question(question: str) -> str:
 def bedrock_claude_is_reachable() -> bool:
     """Live capability probe -- lets the regression suite skip gracefully
     instead of failing noisily when Bedrock Anthropic access is unavailable
-    (see DECISION_LOG.md 2026-09-11, 'Anthropic-Use-Case-Formular fehlt')."""
+    (e.g. the account's model-use-case form for this model has not been
+    approved yet)."""
     try:
         model = BedrockModel(model_id=BEDROCK_MODEL_ID, region_name=AWS_REGION)
         agent = Agent(model=model, system_prompt="Reply with exactly one word.")

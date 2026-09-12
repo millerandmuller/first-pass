@@ -13,7 +13,7 @@ from backend.regulatory_reasoning import bedrock_claude_is_reachable
 
 pytestmark = pytest.mark.skipif(
     not bedrock_claude_is_reachable(),
-    reason="Bedrock Anthropic access unavailable -- see DECISION_LOG.md 2026-09-11",
+    reason="Bedrock Anthropic access unavailable in this environment",
 )
 
 

@@ -2,8 +2,8 @@
 
 Principle 3 from the brief: "deterministic code decides, the model proposes."
 Every cited claim in the report gets a word-overlap score against the real
-source text it cites -- this is the mechanism the demo uses to show a
-manipulated/hallucinated citation visibly failing (Proof beat, 2:00-3:15).
+source text it cites -- this is the mechanism that makes a manipulated or
+hallucinated citation visibly fail its grounding check.
 
 Deliberately simple and auditable: a stopword-filtered word-overlap ratio,
 not embeddings or a second model call. If this were itself a model call, a
@@ -87,9 +87,9 @@ def score_claim_against_sources(claim_text: str, source_texts: list[str]) -> Gro
 def highlight_html(claim_text: str, result: GroundingResult) -> str:
     """Render `claim_text` with matched words wrapped for CSS highlighting.
 
-    Used by F9 (Proof beat): matched words get class="grounded", unmatched
-    words get class="ungrounded" -- the visible red/green the demo script
-    describes. Matching is done on tokens, not substrings, to avoid
+    Used by F9: matched words get class="grounded", unmatched words get
+    class="ungrounded" -- the visible red/green highlighting shown next to
+    each cited claim. Matching is done on tokens, not substrings, to avoid
     highlighting "her" inside "hers".
 
     `claim_text` is model-generated (an interpretation agent's own words), so

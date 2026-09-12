@@ -111,9 +111,9 @@ class SectionWriteResult:
 CONTENT_FILTERED_NOTE = (
     "[CONTENT FILTER] This section's content was blocked by the model provider's "
     "safety filter before any text was produced. No content is fabricated in its "
-    "place -- verified 2026-09-11 that certain legitimate scientific phrasing "
-    "(e.g. cross-species epitope-binding language) can trigger this deterministically; "
-    "see DECISION_LOG.md. Rephrasing the underlying evidence excerpt is the usual fix."
+    "place. This section is empty because of that filter, not because no evidence "
+    "exists for it -- the underlying evidence excerpts are still cited elsewhere "
+    "in this report where the filter did not trigger."
 )
 
 
@@ -211,10 +211,10 @@ def _score_bids(bids: list[InterpretationBid], ledger: CitationLedger) -> None:
     post-processing step only lived in the standalone run_interpretation_swarm
     helper (used for manual verification, not the nested-in-Graph path), so
     every bid from a real pipeline run had an empty grounding_scores dict
-    until this was added. `highlighted_html` (the Proof beat's visible
-    grounded/ungrounded word coloring) was computed by grounding_score.py but
-    never called from anywhere in the real pipeline -- built and unit-tested
-    in isolation, never wired in. Mutates `bids` in place.
+    until this was added. `highlighted_html` (the visible grounded/ungrounded
+    word coloring shown next to each interpretation) was computed by
+    grounding_score.py but never called from anywhere in the real pipeline --
+    built and unit-tested in isolation, never wired in. Mutates `bids` in place.
     """
     for bid in bids:
         excerpts = []

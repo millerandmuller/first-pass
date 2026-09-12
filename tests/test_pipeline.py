@@ -22,7 +22,7 @@ def test_unknown_target_produces_honest_empty_report_not_a_crash():
 
 @pytest.mark.skipif(
     not bedrock_claude_is_reachable(),
-    reason="Bedrock Anthropic access unavailable -- see DECISION_LOG.md 2026-09-11",
+    reason="Bedrock Anthropic access unavailable in this environment",
 )
 def test_glp1r_full_pipeline_produces_a_complete_grounded_report():
     events = []

@@ -40,7 +40,7 @@ openFDA cannot be searched by target name. A restricted search against `nonclini
 
 ### Why the grounding score is plain word overlap, not another model call
 
-If the report-writing model has a faithfulness bug, a second model call asked to grade faithfulness can plausibly share the same blind spot. `score_claim` is a stopword-filtered word-overlap ratio between a claim and the real source text it cites — simple enough to audit by hand, and the mechanism the Proof beat uses to show a manipulated citation visibly losing its grounding highlight.
+If the report-writing model has a faithfulness bug, a second model call asked to grade faithfulness can plausibly share the same blind spot. `score_claim` is a stopword-filtered word-overlap ratio between a claim and the real source text it cites — simple enough to audit by hand, and the mechanism that makes a manipulated citation visibly lose its grounding highlight.
 
 ## Deployment
 

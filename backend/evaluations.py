@@ -30,8 +30,7 @@ guessable from the CLI help text alone:
    the latter is rejected as lacking "model/tool/agent invocation details"
    even though it has the same message content.
 5. Verified live 2026-09-11: a Faithfulness call against a real trace
-   returned a real score, label, and LLM-judge explanation -- see
-   DECISION_LOG.md / directives/common_issues.md for the full story.
+   returned a real score, label, and LLM-judge explanation.
 
 Scope for this build: one report-generation run captured at a time process-
 wide (`run_with_trace_capture` holds a lock for its duration) -- matches the

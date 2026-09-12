@@ -102,7 +102,7 @@ def test_score_bids_fills_grounding_scores_from_ledger_excerpt_text():
     )
     _score_bids([bid], ledger)
     assert bid.grounding_scores[rid] == 1.0
-    # F4 Proof beat: the claim text comes back with grounded/ungrounded spans,
+    # F4: the claim text comes back with grounded/ungrounded spans,
     # not just a bare score -- this was built (grounding_score.highlight_html)
     # but never wired into the real pipeline until this function called it.
     assert '<span class="grounded">Rats</span>' in bid.highlighted_html
@@ -136,13 +136,12 @@ def test_process_node_result_marks_content_filtered_without_fabricating_text():
 
 @pytest.mark.skipif(
     not bedrock_claude_is_reachable(),
-    reason="Bedrock Anthropic access unavailable -- see DECISION_LOG.md 2026-09-11",
+    reason="Bedrock Anthropic access unavailable in this environment",
 )
 def test_process_node_result_handles_a_real_content_filtered_agent_call():
     # Verified 2026-09-11: this exact phrasing pattern deterministically
-    # trips Bedrock's content filter with an empty response -- see
-    # DECISION_LOG.md. Confirms the real AgentResult shape (not just a fake
-    # stand-in) is handled correctly.
+    # trips Bedrock's content filter with an empty response. Confirms the
+    # real AgentResult shape (not just a fake stand-in) is handled correctly.
     from strands import Agent
     from strands.models import BedrockModel
 
@@ -167,7 +166,7 @@ def test_process_node_result_handles_a_real_content_filtered_agent_call():
 
 @pytest.mark.skipif(
     not bedrock_claude_is_reachable(),
-    reason="Bedrock Anthropic access unavailable -- see DECISION_LOG.md 2026-09-11",
+    reason="Bedrock Anthropic access unavailable in this environment",
 )
 def test_full_graph_runs_end_to_end_with_no_hallucinations_or_dealbreaker_flags():
     from backend.section_graph import run_section_graph

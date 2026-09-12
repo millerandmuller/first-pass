@@ -9,9 +9,8 @@ process -- would silently break in production. One open SSE connection for
 the whole run (progress events, then a final event carrying the report HTML
 itself) needs no cross-request state at all.
 
-No auth, no persisted user data (brief Section 6/8) -- deliberately quick
-and dirty here; the retrieval/scoring/citation layers underneath are the
-carefully-built part.
+No auth, no persisted user data -- deliberately quick and dirty here; the
+retrieval/scoring/citation layers underneath are the carefully-built part.
 """
 
 from __future__ import annotations

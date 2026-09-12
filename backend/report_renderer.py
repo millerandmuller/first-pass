@@ -51,7 +51,7 @@ class InterpretationCard:
     grounding_scores: dict[str, float]
     confidence_note: str
     is_strongest: bool = False
-    highlighted_html: str = ""  # interpretation_text with grounded/ungrounded spans -- F4 Proof beat
+    highlighted_html: str = ""  # F4: interpretation_text with grounded/ungrounded spans marked
 
     @property
     def best_grounding_score(self) -> float:

@@ -9,8 +9,7 @@ one fact T-06 is actually about, so "T-01..T-06 automated" is one coherent,
 literally-checkable claim rather than five tests plus an unrelated import).
 
 T-01..T-05 auto-skip (not fail) when Bedrock Anthropic access is down --
-see backend.regulatory_reasoning.bedrock_claude_is_reachable and
-DECISION_LOG.md 2026-09-11 ("Anthropic-Use-Case-Formular fehlt").
+see backend.regulatory_reasoning.bedrock_claude_is_reachable.
 """
 
 import re
@@ -22,7 +21,7 @@ from backend.regulatory_reasoning import answer_regulatory_question, bedrock_cla
 
 requires_bedrock = pytest.mark.skipif(
     not bedrock_claude_is_reachable(),
-    reason="Bedrock Anthropic access unavailable -- see DECISION_LOG.md 2026-09-11",
+    reason="Bedrock Anthropic access unavailable in this environment",
 )
 
 
@@ -122,11 +121,11 @@ def test_t04_non_relevant_species_does_not_count_as_second_species():
     only in cynomolgus ... tissue") deterministically trips Bedrock's
     content filter for this model (verified 2026-09-11 -- empty response,
     stop_reason="content_filtered", reproducible 3/3, no account Guardrail
-    involved; see DECISION_LOG.md and backend/section_graph.py's
-    CONTENT_FILTERED_NOTE handling for the real-pipeline mitigation). This
-    rewording tests the identical regulatory scenario without the trigger
-    phrase; verified separately that the underlying reasoning is correct
-    under the original wording too, once past the filter.
+    involved; see backend/section_graph.py's CONTENT_FILTERED_NOTE handling
+    for the real-pipeline mitigation). This rewording tests the identical
+    regulatory scenario without the trigger phrase; verified separately that
+    the underlying reasoning is correct under the original wording too, once
+    past the filter.
     """
     response = answer_regulatory_question(
         "Is a 4-week rat toxicology study a valid second species for a "
