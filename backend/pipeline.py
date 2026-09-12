@@ -50,7 +50,7 @@ def _empty_target_report(target: str, resolution, ledger: CitationLedger) -> Rep
             )
         ],
         ledger=ledger,
-        data_source_note="No drug names resolved for this target -- see Section 1 for the attempted search path.",
+        data_source_note="No drug names resolved for this target; Section 1 shows the search path that was tried.",
         resolution=resolution,
     )
 
@@ -70,6 +70,51 @@ def _pick_primary_finding(evidence: list[DrugEvidence]) -> tuple[str, str]:
         if item.label.nonclinical_toxicology:
             return "nonclinical_toxicology", " ".join(item.label.nonclinical_toxicology)[:1500]
     return "none", ""
+
+
+def _join_numbers(numbers: list[int]) -> str:
+    """[3] -> "3"; [3, 5] -> "3 and 5"; [2, 3, 5] -> "2, 3, and 5" -- never a
+    raw Python list literal in reader-facing report text."""
+    ordered = [str(n) for n in sorted(numbers)]
+    if len(ordered) == 1:
+        return ordered[0]
+    if len(ordered) == 2:
+        return f"{ordered[0]} and {ordered[1]}"
+    return ", ".join(ordered[:-1]) + f", and {ordered[-1]}"
+
+
+def _report_notes(
+    content_filtered_sections: list[int],
+    hallucination_flags: dict[int, list[str]],
+    dealbreaker_flags: dict[int, list[str]],
+) -> list[str]:
+    """Turn the three raw per-section flag collections into the notice text
+    shown to the reviewing scientist. Pure (no Bedrock, no I/O) so it can be
+    unit tested without a live run."""
+    notes: list[str] = []
+    if content_filtered_sections:
+        word = "Section" if len(content_filtered_sections) == 1 else "Sections"
+        verb = "was" if len(content_filtered_sections) == 1 else "were"
+        notes.append(
+            f"{word} {_join_numbers(content_filtered_sections)} {verb} blocked by the model "
+            f"provider's content filter."
+        )
+    if hallucination_flags:
+        section_numbers = list(hallucination_flags)
+        word = "section" if len(section_numbers) == 1 else "sections"
+        notes.append(
+            f"Unregistered reference IDs were caught and suppressed in {word} "
+            f"{_join_numbers(section_numbers)}."
+        )
+    if dealbreaker_flags:
+        phrases = [phrase for flags in dealbreaker_flags.values() for phrase in flags]
+        quoted = ", ".join(f"'{p}'" for p in phrases)
+        notes.append(
+            f"Section 6 contains wording that reads as setting a NOAEL or judging acceptability "
+            f"({quoted}). This report does not make that call; treat that sentence as unreviewed "
+            f"model output."
+        )
+    return notes
 
 
 def run_pipeline(target: str, on_progress: ProgressCallback = _noop_progress) -> PipelineResult:
@@ -176,12 +221,11 @@ def run_pipeline(target: str, on_progress: ProgressCallback = _noop_progress) ->
     hallucination_flags = {
         n: r.hallucinated_reference_ids for n, r in section_results.items() if r.hallucinated_reference_ids
     }
+    dealbreaker_flags = {
+        n: r.dealbreaker_flags for n, r in section_results.items() if r.dealbreaker_flags
+    }
 
-    notes = []
-    if content_filtered_sections:
-        notes.append(f"Sections {content_filtered_sections} were blocked by the model provider's content filter.")
-    if hallucination_flags:
-        notes.append(f"Unregistered reference IDs were caught and suppressed in sections {list(hallucination_flags)}.")
+    notes = _report_notes(content_filtered_sections, hallucination_flags, dealbreaker_flags)
 
     report = Report(
         target=target,

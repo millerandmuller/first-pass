@@ -11,6 +11,7 @@ from backend.report_renderer import (
     ReportSection,
     render_html,
     render_markdown,
+    report_to_dict,
 )
 
 
@@ -194,6 +195,33 @@ def test_render_markdown_does_not_duplicate_references_section():
     # the ledger's own top-level "## References..." heading must be suppressed
     # when embedded in the numbered section (include_heading=False)
     assert "## References & Regulatory Sources\n" not in markdown
+
+
+def _minimal_report(data_source_note):
+    # No openFDA/genetics lookups -- report_to_dict's own contract does not
+    # depend on real upstream data, only on the Report shape.
+    return Report(
+        target="GLP-1R",
+        generated_at="2026-09-11T16:00:00Z",
+        sections=[ReportSection(1, "Target Profile & Biological Function", "<p>Body.</p>")],
+        ledger=CitationLedger(),
+        data_source_note=data_source_note,
+    )
+
+
+def test_report_to_dict_includes_data_source_note_when_present():
+    report = _minimal_report("Section 2 was blocked by the model provider's content filter.")
+    payload = report_to_dict(report, served="live")
+    assert payload["data_source_note"] == "Section 2 was blocked by the model provider's content filter."
+
+
+def test_report_to_dict_includes_data_source_note_key_as_none_when_absent():
+    # The frontend must be able to tell "no note" apart from "key missing" --
+    # the three cached demo reports predate this field entirely.
+    report = _minimal_report(None)
+    payload = report_to_dict(report, served="live")
+    assert "data_source_note" in payload
+    assert payload["data_source_note"] is None
 
 
 def test_render_html_has_no_unresolved_jinja_or_missing_closing_tags():

@@ -293,6 +293,7 @@ def report_to_dict(
             else None
         ),
         "disclaimer_text": report.disclaimer_text,
+        "data_source_note": report.data_source_note,
     }
     if served == "cached":
         payload["run_label"] = run_label

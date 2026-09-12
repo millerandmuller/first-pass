@@ -154,12 +154,11 @@ def _text_to_safe_html(text: str, ledger: CitationLedger) -> tuple[str, list[str
 
 
 def _check_dealbreakers(section_number: int, raw_text: str) -> list[str]:
+    """Matched phrases only (not a wrapped explanation) -- the caller builds
+    the reader-facing note text, and needs the phrase itself to quote it."""
     if section_number != 6:
         return []
-    flags = []
-    for match in _ACCEPTANCE_LANGUAGE_PATTERN.finditer(raw_text):
-        flags.append(f"possible acceptance/NOAEL-setting language: '{match.group(0)}'")
-    return flags
+    return [match.group(0) for match in _ACCEPTANCE_LANGUAGE_PATTERN.finditer(raw_text)]
 
 
 def build_section_graph(ledger: CitationLedger):

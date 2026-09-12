@@ -72,7 +72,7 @@ export AWS_REGION=us-west-2  # region matters: see backend/config.py
 uvicorn backend.api:app --reload --port 8000
 ```
 
-Then open `http://localhost:8000`. Running the test suite (`pytest`) hits real openFDA and, where Bedrock access is available, real Bedrock/AgentCore calls. 10 of the 90 tests monkeypatch the HTTP layer (rate limiting, the kill switch, config defaults) rather than the retrieval/scoring/citation science underneath, which is exercised live.
+Then open `http://localhost:8000`. Running the test suite (`pytest`) hits real openFDA and, where Bedrock access is available, real Bedrock/AgentCore calls. 10 of the 102 tests monkeypatch the HTTP layer (rate limiting, the kill switch, config defaults) rather than the retrieval/scoring/citation science underneath, which is exercised live.
 
 ## What this deliberately does not do
 
