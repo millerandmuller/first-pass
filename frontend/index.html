@@ -158,7 +158,15 @@
   .fp-badge-row { display: flex; flex-wrap: wrap; gap: 7px 14px; align-items: center; }
   .fp-eval-pill { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; color: var(--slate); white-space: nowrap; }
   .fp-eval-pill .val { color: var(--text); }
+  button.fp-eval-pill { cursor: pointer; background: none; border: none; padding: 0; transition: color 160ms; }
+  button.fp-eval-pill:hover, button.fp-eval-pill[aria-expanded="true"] { color: var(--text); }
+  .fp-eval-panel { border: 1px solid var(--border); border-radius: 10px; background: var(--inset); padding: 13px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .fp-eval-panel-head { font-size: 11px; color: var(--slate); }
+  .fp-eval-panel-body { font-size: 13px; line-height: 1.6; color: var(--body); white-space: pre-wrap; }
   .fp-served-pill { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--red); border-radius: 8px; padding: 4px 11px; font-size: 11px; color: var(--text); }
+
+  /* Data-source note (main card, delivered reports) */
+  .fp-data-note { border: 1px solid var(--border); border-left: 3px solid var(--red); border-radius: 10px; background: var(--inset); padding: 12px 16px; font-size: 13px; line-height: 1.55; color: var(--body); }
 
   .fp-specimen-notice { display: flex; align-items: flex-start; gap: 12px; background: var(--inset); border: 1px solid var(--border); border-radius: 10px; padding: 13px 16px; }
   .fp-specimen-notice .rule { flex: 0 0 3px; align-self: stretch; border-radius: 2px; background: var(--border2); }
@@ -397,6 +405,7 @@ const state = {
   replayTimer: null,
   replayTick: 0,
   specimenReportData: null, // real GLP-1R report, fetched once on load for the at-rest specimen
+  openEvalId: null, // evaluator_id of the currently open explanation panel, or null -- delivered reports only
 };
 
 /* ---------- helpers ---------- */
@@ -465,6 +474,7 @@ function startRun(target) {
   state.reportData = null;
   state.reportHtml = "";
   state.served = null;
+  state.openEvalId = null;
   render();
 
   const source = new EventSource(`/api/generate?target=${encodeURIComponent(target)}`);
@@ -787,6 +797,13 @@ function renderReportCard(rd, opts) {
     if (openBtn) openBtn.addEventListener("click", () => openFullReport(opts.html));
     const printBtn = cardEl.querySelector("[data-action=print-report]");
     if (printBtn) printBtn.addEventListener("click", () => printFullReport(opts.html));
+    cardEl.querySelectorAll("[data-eval-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.evalId;
+        state.openEvalId = state.openEvalId === id ? null : id;
+        render();
+      });
+    });
   } else {
     const ctaBtn = cardEl.querySelector("[data-action=focus-input]");
     if (ctaBtn) ctaBtn.addEventListener("click", () => input.focus());
@@ -822,11 +839,34 @@ function printFullReport(html) {
 function reportCardHtml(rd, opts) {
   const specimen = opts.mode === "specimen";
   const evals = rd.evaluations || [];
+
+  // At rest (the specimen), pills are plain non-interactive spans -- a
+  // sample document must not offer working controls. On a delivered
+  // report, a pill with a real evaluation becomes a button that opens its
+  // explanation panel just below the badge row.
   const evalPill = (id, label) => {
     const ev = evals.find((e) => e.evaluator_id === id);
     const val = ev ? (ev.status === "live" ? ev.score.toFixed(2) : "GAP") : "—";
-    return `<span class="fp-eval-pill mono">${label}<span class="val">${escapeHtml(val)}</span></span>`;
+    const valHtml = `<span class="val">${escapeHtml(val)}</span>`;
+    if (specimen || !ev) {
+      return `<span class="fp-eval-pill mono">${label}${valHtml}</span>`;
+    }
+    const expanded = state.openEvalId === id;
+    return `<button type="button" class="fp-eval-pill mono" data-eval-id="${escapeHtml(id)}" aria-expanded="${expanded}">${label}${valHtml}</button>`;
   };
+
+  const evalPanel = () => {
+    if (specimen) return "";
+    const ev = evals.find((e) => e.evaluator_id === state.openEvalId);
+    if (!ev) return "";
+    const val = ev.status === "live" ? ev.score.toFixed(2) : "GAP";
+    return `
+      <div class="fp-eval-panel">
+        <div class="fp-eval-panel-head mono">${escapeHtml(ev.evaluator_id)} · ${escapeHtml(val)}</div>
+        <div class="fp-eval-panel-body">${escapeHtml(ev.explanation || "")}</div>
+      </div>`;
+  };
+
   const servedLabel = rd.served === "cached" ? "Pre-computed demo run" : "Live run";
 
   const sectionsHtml = (rd.sections || []).map((s) => sectionHtml(s, rd)).join("");
@@ -840,12 +880,14 @@ function reportCardHtml(rd, opts) {
         ${evalPill("Builtin.Correctness", "correctness")}
         <span class="fp-served-pill mono">${escapeHtml(servedLabel)}</span>
       </div>
+      ${evalPanel()}
     </div>
     ${specimen ? `
       <div class="fp-specimen-notice">
         <span class="rule"></span>
         <div class="txt">A real ${escapeHtml(rd.target)} assessment, opened to the first lines of each of its seven sections. Yours will look like this, for the target you name.</div>
       </div>` : ""}
+    ${!specimen && rd.data_source_note ? `<div class="fp-data-note">${escapeHtml(rd.data_source_note)}</div>` : ""}
     ${sectionsHtml}
     <div class="fp-card-footer">
       <div class="fp-disclaimer">${escapeHtml(rd.disclaimer_text || "")}</div>
