@@ -6,10 +6,10 @@ real module-level _CACHE_DIR directly -- test_save_then_load_roundtrips
 called save_cached_report("HER2", ...), overwriting the actual committed
 demo_data/report_cache/HER2.html with fake test content, and an autouse
 cleanup fixture then deleted the whole real cache directory (GLP-1R.html,
-KRAS.html included) after every test in this file ran. Caught when an
-examiner-features agent found the live deployment's real demo cache broken
-and traced it back to this file wiping the committed fixtures locally
-during an unrelated test run. Restored via `git checkout` and fixed here.
+KRAS.html included) after every test in this file ran. Caught when a
+pre-release audit found the live deployment's real demo cache broken and
+traced it back to this file wiping the committed fixtures locally during
+an unrelated test run. Restored via `git checkout` and fixed here.
 """
 
 import pytest
