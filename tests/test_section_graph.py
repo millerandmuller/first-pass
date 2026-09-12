@@ -123,6 +123,55 @@ def test_score_bids_skips_sources_with_no_excerpt_text():
     assert '<span class="ungrounded">claim</span>' in bid.highlighted_html
 
 
+def test_reentry_plan_starts_at_the_first_missing_stance():
+    # A fake result missing stances 3 and 4 (adaptive, artifact) -- the
+    # swarm's fixed handoff order -- must trigger re-entry starting at
+    # stance 3, covering the fixed order through the end from there.
+    from backend.interpretation_swarm import InterpretationBid, _reentry_plan
+
+    bids = [
+        InterpretationBid(stance="adverse", interpretation_text="x", reference_ids=[], confidence_note="n"),
+        InterpretationBid(stance="non_adverse", interpretation_text="y", reference_ids=[], confidence_note="n"),
+    ]
+    assert _reentry_plan(bids) == ["adaptive", "artifact"]
+
+
+def test_reentry_plan_is_none_when_all_four_stances_bid():
+    from backend.interpretation_swarm import INTERPRETATION_STANCES, InterpretationBid, _reentry_plan
+
+    bids = [
+        InterpretationBid(stance=s, interpretation_text="x", reference_ids=[], confidence_note="n")
+        for s in INTERPRETATION_STANCES
+    ]
+    assert _reentry_plan(bids) is None
+
+
+def test_interpretation_entries_renders_a_gap_card_for_each_missing_stance():
+    # Rendering 2 of 4 bids must produce 2 gap cards, never a silently
+    # shortened grid and never a fabricated third/fourth bid.
+    from backend.report_renderer import InterpretationCard, _interpretation_entries
+
+    cards = [
+        InterpretationCard(
+            stance="adverse", interpretation_text="x", reference_ids=[], grounding_scores={}, confidence_note="n"
+        ),
+        InterpretationCard(
+            stance="non_adverse", interpretation_text="y", reference_ids=[], grounding_scores={}, confidence_note="n"
+        ),
+    ]
+    entries = _interpretation_entries(cards, missing_stances=["adaptive", "artifact"])
+
+    assert len(entries) == 4
+    live = [e for e in entries if e["status"] == "live"]
+    gaps = [e for e in entries if e["status"] == "gap"]
+    assert {e["stance"] for e in live} == {"adverse", "non_adverse"}
+    assert len(gaps) == 2
+    assert {e["stance"] for e in gaps} == {"adaptive", "artifact"}
+    # A gap entry carries no score/text -- nothing for the frontend to
+    # mistake for a real bid.
+    assert all("text" not in g and "score" not in g for g in gaps)
+
+
 def test_process_node_result_marks_content_filtered_without_fabricating_text():
     class FakeFilteredResult:
         stop_reason = "content_filtered"

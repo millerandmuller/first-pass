@@ -1,6 +1,6 @@
 """Orchestrates one target -> report run, emitting progress events as it goes.
 
-Multi-agent hooks into progress (brief F5/F10): each pipeline stage calls
+Multi-agent hooks into progress (F5/F10): each pipeline stage calls
 `on_progress` with a stage name and status before/after doing its work, which
 the API layer forwards as Server-Sent Events to the input UI's progress
 indicator.
@@ -15,9 +15,10 @@ from typing import Callable, Optional
 from backend.citation_ledger import CitationLedger
 from backend.evaluations import evaluate_correctness, evaluate_faithfulness, run_with_trace_capture
 from backend.genetics_precedent import get_precedent
+from backend.interpretation_swarm import missing_stances
 from backend.openfda_client import DrugEvidence, gather_evidence_for_drugs
 from backend.report_renderer import EvaluationScore, InterpretationCard, Report, ReportSection
-from backend.section_graph import run_section_graph
+from backend.section_graph import build_grounded_example, run_section_graph
 from backend.target_resolution import resolve_target
 
 ProgressCallback = Callable[[str, str, Optional[str]], None]  # (stage, status, detail)
@@ -32,6 +33,7 @@ class PipelineResult:
     report: Report
     target_resolution: object
     is_partial: bool  # True if any section hit a content filter or evidence gap
+    nonclinical_label_count: Optional[int] = None  # among labels actually retrieved, not the full class total
 
 
 def _empty_target_report(target: str, resolution, ledger: CitationLedger) -> Report:
@@ -49,6 +51,7 @@ def _empty_target_report(target: str, resolution, ledger: CitationLedger) -> Rep
         ],
         ledger=ledger,
         data_source_note="No drug names resolved for this target -- see Section 1 for the attempted search path.",
+        resolution=resolution,
     )
 
 
@@ -85,6 +88,10 @@ def run_pipeline(target: str, on_progress: ProgressCallback = _noop_progress) ->
 
     on_progress("evidence_retrieval", "running", None)
     evidence = gather_evidence_for_drugs(resolution.drug_names)
+    # Counted among labels actually retrieved here (capped by resolution's
+    # drug-name limit), not the open-ended class total in resolution.total_labels
+    # -- the two numbers answer different questions, see report_renderer.report_to_dict.
+    nonclinical_label_count = sum(1 for item in evidence if item.label.nonclinical_toxicology)
     excerpt_lines: list[str] = []
     for item in evidence:
         if item.label.source_status in ("live", "cached") and item.label.nonclinical_toxicology:
@@ -129,12 +136,19 @@ def run_pipeline(target: str, on_progress: ProgressCallback = _noop_progress) ->
 
     on_progress("section_graph", "running", "7-node graph + nested 4-agent swarm")
     (report_and_bids, spans) = run_with_trace_capture(
-        lambda: run_section_graph(ledger, task_context=task_context)
+        lambda: run_section_graph(ledger, task_context=task_context, on_progress=on_progress)
     )
     section_results, bids = report_and_bids
     on_progress("section_graph", "done", f"{len(section_results)} sections written")
 
     is_partial = any(r.content_filtered or r.hallucinated_reference_ids for r in section_results.values())
+
+    # Section-03 provenance callout: one real cited claim from Section 3's
+    # own text, paired with the source excerpt it matched. None when no
+    # citation there scores.
+    grounded_example = None
+    if 3 in section_results:
+        grounded_example = build_grounded_example(section_results[3].section.html_body, ledger)
 
     on_progress("evaluations", "running", None)
     faithfulness = evaluate_faithfulness(spans)
@@ -190,6 +204,14 @@ def run_pipeline(target: str, on_progress: ProgressCallback = _noop_progress) ->
             ),
         ],
         data_source_note=" ".join(notes) if notes else None,
+        resolution=resolution,
+        grounded_example=grounded_example,
+        missing_interpretation_stances=missing_stances(bids),
     )
     on_progress("report_render", "done", None)
-    return PipelineResult(report=report, target_resolution=resolution, is_partial=is_partial)
+    return PipelineResult(
+        report=report,
+        target_resolution=resolution,
+        is_partial=is_partial,
+        nonclinical_label_count=nonclinical_label_count,
+    )

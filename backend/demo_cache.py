@@ -45,12 +45,17 @@ def _meta_path(target: str) -> str:
     return os.path.join(_CACHE_DIR, f"{_normalize(target)}.meta.json")
 
 
+def _report_path(target: str) -> str:
+    return os.path.join(_CACHE_DIR, f"{_normalize(target)}.report.json")
+
+
 @dataclass
 class CachedReport:
     html: str
     generated_at: str
     duration_seconds: float
     run_label: str  # e.g. "dry-run-1", "dry-run-2" -- which pre-warm pass produced this
+    report: Optional[dict] = None  # structured payload for the v4 UI, see report_renderer.report_to_dict
 
 
 def load_cached_report(target: str) -> Optional[CachedReport]:
@@ -63,15 +68,27 @@ def load_cached_report(target: str) -> Optional[CachedReport]:
         html = fh.read()
     with open(meta_path) as fh:
         meta = json.load(fh)
+    report_payload = None
+    report_path = _report_path(target)
+    if os.path.exists(report_path):
+        with open(report_path) as fh:
+            report_payload = json.load(fh)
     return CachedReport(
         html=html,
         generated_at=meta["generated_at"],
         duration_seconds=meta["duration_seconds"],
         run_label=meta["run_label"],
+        report=report_payload,
     )
 
 
-def save_cached_report(target: str, html: str, duration_seconds: float, run_label: str) -> None:
+def save_cached_report(
+    target: str,
+    html: str,
+    duration_seconds: float,
+    run_label: str,
+    report_payload: Optional[dict] = None,
+) -> None:
     os.makedirs(_CACHE_DIR, exist_ok=True)
     with open(_html_path(target), "w") as fh:
         fh.write(html)
@@ -83,6 +100,9 @@ def save_cached_report(target: str, html: str, duration_seconds: float, run_labe
     }
     with open(_meta_path(target), "w") as fh:
         json.dump(meta, fh, indent=2)
+    if report_payload is not None:
+        with open(_report_path(target), "w") as fh:
+            json.dump(report_payload, fh, indent=2)
 
 
 def cache_banner_html(cached: CachedReport) -> str:

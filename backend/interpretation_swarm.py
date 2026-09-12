@@ -129,19 +129,29 @@ def _build_submit_tool(ledger: CitationLedger, bids: list[InterpretationBid]):
 
 def build_interpretation_swarm(
     ledger: CitationLedger,
+    *,
+    stances: list[str] = INTERPRETATION_STANCES,
+    bids: Optional[list[InterpretationBid]] = None,
 ) -> tuple[Swarm, list[InterpretationBid], list[str]]:
-    """Build the four-agent interpretation Swarm.
+    """Build an interpretation Swarm covering `stances`, in that order.
 
     Returns (swarm, bids_list, agent_order). `bids_list` is populated in place
     as agents call submit_interpretation during swarm execution -- inspect it
     after `swarm(task)` returns.
+
+    `stances` and `bids` exist for `reenter_missing_stances` below: a fresh
+    Swarm needs fresh Agent objects (Strands' `_inject_swarm_tools` raises if
+    an agent that already carries `handoff_to_agent` from a prior Swarm is
+    reused), but re-entry must append into the SAME bids list the first,
+    incomplete run produced, not start a new one.
     """
-    bids: list[InterpretationBid] = []
+    if bids is None:
+        bids = []
     submit_tool = _build_submit_tool(ledger, bids)
     model = BedrockModel(model_id=BEDROCK_MODEL_ID, region_name=AWS_REGION)
 
     agents = []
-    for stance in INTERPRETATION_STANCES:
+    for stance in stances:
         system_prompt = SWARM_SYSTEM_PROMPT_TEMPLATE.format(
             stance_instruction=STANCE_DEFINITIONS[stance]
         )
@@ -157,6 +167,53 @@ def build_interpretation_swarm(
     swarm = Swarm(agents, entry_point=agents[0])
     agent_order = [a.name for a in agents]
     return swarm, bids, agent_order
+
+
+def missing_stances(bids: list[InterpretationBid]) -> list[str]:
+    """Stances in INTERPRETATION_STANCES order that never got a bid."""
+    present = {b.stance for b in bids}
+    return [s for s in INTERPRETATION_STANCES if s not in present]
+
+
+def _reentry_plan(bids: list[InterpretationBid]) -> Optional[list[str]]:
+    """The stances a re-entry swarm should cover, or None if nothing is
+    missing.
+
+    The swarm hands off in a fixed order (adverse -> non_adverse -> adaptive
+    -> artifact); one agent occasionally decides its own bid is "the last"
+    and never calls handoff_to_agent, which silently drops every stance
+    after it. The plan always starts at the FIRST missing stance and runs
+    the fixed order through to the end, since a dropped handoff drops
+    everything downstream of it, not an isolated stance.
+    """
+    missing = missing_stances(bids)
+    if not missing:
+        return None
+    start_index = INTERPRETATION_STANCES.index(missing[0])
+    return INTERPRETATION_STANCES[start_index:]
+
+
+def reenter_missing_stances(
+    ledger: CitationLedger,
+    bids: list[InterpretationBid],
+    task_context: str,
+) -> list[str]:
+    """Re-run the swarm once, starting at the first stance that never
+    submitted a bid, covering the fixed order through the end from there.
+
+    Mutates `bids` in place (appends any new bids). Returns the stance list
+    that was re-run, or [] if nothing was missing. A stance still missing
+    after this one retry is left missing -- the caller renders it as a
+    visible gap, never a fabricated bid. Called at most once per report: a
+    second dropped handoff on the retry itself is left as a gap rather than
+    retried again, to keep a bad run's latency and cost bounded.
+    """
+    plan = _reentry_plan(bids)
+    if plan is None:
+        return []
+    swarm, _bids, _agent_order = build_interpretation_swarm(ledger, stances=plan, bids=bids)
+    swarm(task_context)
+    return plan
 
 
 def run_interpretation_swarm(

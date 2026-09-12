@@ -84,6 +84,39 @@ def score_claim_against_sources(claim_text: str, source_texts: list[str]) -> Gro
     return max(results, key=lambda r: r.score)
 
 
+def excerpt_window(source_text: str, result: GroundingResult, *, window_words: int = 45) -> str:
+    """~window_words words of `source_text` centered on the first run of the
+    claim's matched words, so a long retrieved excerpt (up to 1500 chars) can
+    be quoted as a short window in a provenance callout rather than
+    reproduced in full.
+
+    Deliberately plain code, same as the rest of this module: token position
+    lookup, no model call. Falls back to the first `window_words` words if no
+    matched word is found (e.g. an empty claim).
+    """
+    words = source_text.split()
+    if not words:
+        return source_text
+    matched_lower = {w.lower() for w in result.matched_words}
+    idx = None
+    for i, w in enumerate(words):
+        token = re.sub(r"[^a-z0-9\-]", "", w.lower())
+        if token in matched_lower:
+            idx = i
+            break
+    if idx is None:
+        idx = 0
+
+    half = window_words // 2
+    start = max(0, idx - half)
+    end = min(len(words), start + window_words)
+    start = max(0, end - window_words)
+    snippet = " ".join(words[start:end])
+    prefix = "… " if start > 0 else ""
+    suffix = " …" if end < len(words) else ""
+    return f"{prefix}{snippet}{suffix}"
+
+
 def highlight_html(claim_text: str, result: GroundingResult) -> str:
     """Render `claim_text` with matched words wrapped for CSS highlighting.
 

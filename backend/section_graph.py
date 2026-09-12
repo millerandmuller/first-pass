@@ -23,6 +23,7 @@ from __future__ import annotations
 import html
 import re
 from dataclasses import dataclass
+from typing import Callable, Optional
 
 from strands import Agent
 from strands.models import BedrockModel
@@ -30,11 +31,17 @@ from strands.multiagent import GraphBuilder
 
 from backend.citation_ledger import CitationLedger
 from backend.config import AWS_REGION, BEDROCK_MODEL_ID
-from backend.grounding_score import highlight_html, score_claim, score_claim_against_sources
-from backend.interpretation_swarm import InterpretationBid, build_interpretation_swarm
-from backend.report_renderer import ReportSection
+from backend.grounding_score import excerpt_window, highlight_html, score_claim, score_claim_against_sources
+from backend.interpretation_swarm import InterpretationBid, build_interpretation_swarm, reenter_missing_stances
+from backend.report_renderer import GroundedExample, ReportSection
 
 _CITE_RE = re.compile(r"\[(R-\d+)\]")
+
+ProgressCallback = Callable[[str, str, Optional[str]], None]  # (stage, status, detail)
+
+
+def _noop_progress(stage: str, status: str, detail: Optional[str] = None) -> None:
+    return None
 
 _SHARED_RULES = """Ground every factual claim only in the evidence excerpts given to you in the \
 task, each tagged with a reference ID like [R-3]. Cite that exact bracketed ID inline after any \
@@ -262,6 +269,7 @@ def run_section_graph(
     ledger: CitationLedger,
     *,
     task_context: str,
+    on_progress: ProgressCallback = _noop_progress,
 ) -> tuple[dict[int, SectionWriteResult], list[InterpretationBid]]:
     """Run the 7-node graph and return per-section results plus the Section 5 bids."""
     graph, bids = build_section_graph(ledger)
@@ -272,7 +280,75 @@ def run_section_graph(
         node_result = graph_result.results[f"section_{number}"]
         results[number] = _process_node_result(number, title, node_result.result, ledger)
 
+    # The swarm's fixed handoff chain occasionally drops the stances after
+    # wherever an agent decides its own bid is "the last" and skips
+    # handoff_to_agent -- give it one retry, starting at the first stance
+    # that never submitted, before accepting whatever came back as final.
+    reentered = reenter_missing_stances(ledger, bids, task_context)
+    if reentered:
+        on_progress("scoring", "running", f"re-entered the swarm at {reentered[0]} after a dropped handoff")
+
+    # UI stage 04 ("Score · plain code"): the real moment every proposed
+    # line gets word-overlapped against its retrieved source text, no model
+    # call. This used to happen silently inside _score_bids with no progress
+    # event of its own.
+    on_progress("scoring", "running", f"word-overlap scoring {len(bids)} interpretation bid(s)")
     _score_bids(bids, ledger)
     results[5] = _section_5_result(bids)
+    scored_citations = sum(len(b.grounding_scores) for b in bids)
+    on_progress("scoring", "done", f"{scored_citations} citation(s) scored")
 
     return results, bids
+
+
+_REF_LINK_RE = re.compile(r'<a class="ref-link" href="#ref-(R-\d+)">\[R-\d+\]</a>')
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def build_grounded_example(section_html_body: str, ledger: CitationLedger) -> Optional[GroundedExample]:
+    """The UI's section-03 provenance callout: the first citation in a
+    rendered section body whose source retained real excerpt text, scored
+    and windowed for display.
+
+    `Source.excerpt_text` was already retained on the ledger, and
+    `score_claim`/`highlight_html` already existed, but nothing turned that
+    into a claim-plus-source pair ready to bind into the UI. Works from the
+    already-escaped `html_body` (not raw model text) so it has no dependency
+    on when in the pipeline it runs. Returns None -- never a placeholder --
+    when no citation in the section has scorable source text; never
+    synthesizes a claim.
+    """
+    for match in _REF_LINK_RE.finditer(section_html_body):
+        rid = match.group(1)
+        source = ledger.get(rid)
+        if not source or not source.excerpt_text:
+            continue
+
+        before = section_html_body[: match.start()]
+        para_start = before.rfind("<p>")
+        clause_html = before[para_start + 3 :] if para_start != -1 else before
+        # The citation's own sentence may already end in ". " immediately
+        # before it (e.g. "...clinical range. [R-14]") -- rfind would match
+        # that period and slice away the entire supporting claim. Walk
+        # backward past any ". " with only trivial content after it (the
+        # citation's own trailing period) to the real prior boundary, if any.
+        sentence_start = clause_html.rfind(". ")
+        while sentence_start != -1 and len(clause_html[sentence_start + 2 :].strip()) < 3:
+            sentence_start = clause_html.rfind(". ", 0, sentence_start)
+        if sentence_start != -1:
+            clause_html = clause_html[sentence_start + 2 :]
+        claim_text = html.unescape(_TAG_RE.sub("", clause_html)).strip()
+        if not claim_text:
+            continue
+
+        result = score_claim(claim_text, source.excerpt_text)
+        if result.score <= 0:
+            continue
+
+        return GroundedExample(
+            claim_html=highlight_html(claim_text, result),
+            source_excerpt_html=highlight_html(excerpt_window(source.excerpt_text, result), result),
+            source_label=source.title,
+            overlap_score=result.score,
+        )
+    return None

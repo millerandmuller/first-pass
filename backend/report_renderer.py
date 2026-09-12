@@ -12,6 +12,7 @@ dump, unrelated to the PDF-vs-webpage question.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -41,6 +42,21 @@ class ReportSection:
     number: int
     title: str
     html_body: str  # citations already rendered as <a href="#ref-R-3">[R-3]</a>
+    opening_html: str = ""  # first paragraph of html_body, citation anchors preserved -- v4 UI excerpt panel
+
+
+@dataclass
+class GroundedExample:
+    """The v4 UI's section-03 provenance callout: one real cited claim from
+    the report body, shown beside the source excerpt it matched. Populated
+    only when section 3 actually cites a source with retained excerpt text
+    and the claim scores above zero against it -- see
+    backend/section_graph.py::_build_grounded_example. Never synthesized."""
+
+    claim_html: str
+    source_excerpt_html: str
+    source_label: str
+    overlap_score: float
 
 
 @dataclass
@@ -76,6 +92,27 @@ class Report:
     evaluation_scores: list[EvaluationScore] = field(default_factory=list)
     disclaimer_text: str = DEFAULT_DISCLAIMER
     data_source_note: Optional[str] = None  # e.g. "cached demo dataset -- openFDA unreachable"
+    resolution: Optional[object] = None  # TargetResolution -- kept for the v4 UI's structured payload
+    grounded_example: Optional[GroundedExample] = None
+    missing_interpretation_stances: list[str] = field(default_factory=list)  # stances with no bid after re-entry
+
+    def __post_init__(self) -> None:
+        for section in self.sections:
+            if not section.opening_html:
+                section.opening_html = first_paragraph_html(section.html_body)
+
+
+_PARAGRAPH_RE = re.compile(r"<p[^>]*>.*?</p>", re.DOTALL)
+
+
+def first_paragraph_html(html_body: str) -> str:
+    """The opening of a rendered section body: its first <p>...</p> block,
+    citation anchors intact. Used by the report excerpt panel, which shows
+    only the opening of each section rather than the full document. Falls
+    back to the whole body when it is not paragraph-wrapped (e.g. a single
+    gap/notice line)."""
+    match = _PARAGRAPH_RE.search(html_body)
+    return match.group(0) if match else html_body
 
 
 def _mark_strongest(cards: list[InterpretationCard]) -> list[InterpretationCard]:
@@ -141,3 +178,123 @@ def render_markdown(report: Report) -> str:
 
     lines.append(f"---\n\n{report.disclaimer_text}")
     return "\n".join(lines)
+
+
+def _reference_text(source) -> str:
+    parts = [source.title]
+    if source.application_number:
+        parts.append(f"({source.application_number})")
+    if source.date:
+        parts.append(f"— {source.date}")
+    parts.append(f"— {source.url}")
+    return " ".join(parts)
+
+
+def _interpretation_entries(
+    cards: list[InterpretationCard], missing_stances: list[str]
+) -> list[dict]:
+    """One JSON entry per real bid, plus one honest gap entry per stance the
+    swarm never produced a bid for (even after its one re-entry retry --
+    see backend/interpretation_swarm.py). Never silently drops a missing
+    stance from the document, never fabricates a bid to fill it."""
+    entries = [
+        {
+            "stance": c.stance,
+            "status": "live",
+            "text": c.highlighted_html or c.interpretation_text,
+            "score": c.best_grounding_score,
+            "is_strongest": c.is_strongest,
+        }
+        for c in cards
+    ]
+    entries.extend({"stance": s, "status": "gap"} for s in missing_stances)
+    return entries
+
+
+def report_to_dict(
+    report: Report,
+    *,
+    served: str,  # "cached" | "live"
+    run_label: Optional[str] = None,
+    duration_seconds: Optional[float] = None,
+    nonclinical_label_count: Optional[int] = None,
+) -> dict:
+    """Serialize `report` into the UI's structured data contract, alongside
+    `render_html`'s full HTML string -- additive, never a replacement. The
+    full-document path, the print stylesheet, and the disclaimer drift test
+    all still depend on `render_html`; this is the second, new payload the
+    frontend binds directly instead of parsing HTML.
+
+    `nonclinical_label_count` is counted among the labels actually retrieved
+    for evidence (capped by MAX_DRUGS_FOR_DEEP_REVIEW's sibling resolution
+    cap), not the full open-ended class total in `resolver.total_labels` --
+    the two numbers answer different questions. Pass None when it was not
+    computed and the frontend shows total_labels alone.
+    """
+    report.interpretation_cards = _mark_strongest(report.interpretation_cards)
+
+    resolution = report.resolution
+    resolver = None
+    if resolution is not None:
+        resolver = {
+            "path": resolution.resolution_path,
+            "matched_phrase": resolution.matched_phrase,
+            "total_labels": resolution.total_labels,
+            "nonclinical_label_count": nonclinical_label_count,
+            "search_trail": [
+                {"path": a.path, "phrase": a.phrase, "status": a.status, "total": a.total}
+                for a in resolution.search_trail
+            ],
+        }
+
+    payload: dict = {
+        "target": report.target,
+        "generated_at": report.generated_at,
+        "served": served,
+        "resolver": resolver,
+        "sections": [
+            {
+                "number": s.number,
+                "title": s.title,
+                "html_body": s.html_body,
+                "opening_html": s.opening_html,
+            }
+            for s in report.sections
+        ],
+        "interpretations": _interpretation_entries(
+            report.interpretation_cards, report.missing_interpretation_stances
+        ),
+        "evaluations": [
+            {
+                "evaluator_id": e.evaluator_id,
+                "score": e.score,
+                "status": e.status,
+                "explanation": e.explanation,
+            }
+            for e in report.evaluation_scores
+        ],
+        "references": [
+            {
+                "tag": f"[{s.reference_id}]",
+                "text": _reference_text(s),
+                "url": s.url,
+                "kind": "curated" if s.curated else "retrieved",
+            }
+            for s in report.ledger.bibliography()
+        ],
+        "grounded_example": (
+            {
+                "claim_html": report.grounded_example.claim_html,
+                "source_excerpt_html": report.grounded_example.source_excerpt_html,
+                "source_label": report.grounded_example.source_label,
+                "overlap_score": report.grounded_example.overlap_score,
+            }
+            if report.grounded_example
+            else None
+        ),
+        "disclaimer_text": report.disclaimer_text,
+    }
+    if served == "cached":
+        payload["run_label"] = run_label
+        payload["duration_seconds"] = duration_seconds
+    return payload

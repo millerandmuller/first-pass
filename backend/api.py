@@ -29,7 +29,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.demo_cache import cache_banner_html, load_cached_report
 from backend.pipeline import run_pipeline
-from backend.report_renderer import render_html
+from backend.report_renderer import render_html, report_to_dict
 
 app = FastAPI(title="First Pass API")
 app.add_middleware(
@@ -92,7 +92,10 @@ def _generate_events(target: str):
     cached = load_cached_report(target)
     if cached is not None:
         yield _sse({"stage": "cache", "status": "done", "detail": f"served from {cached.run_label}"})
-        yield _sse({"stage": "_report", "html": cache_banner_html(cached) + cached.html})
+        report_event = {"stage": "_report", "html": cache_banner_html(cached) + cached.html}
+        if cached.report is not None:
+            report_event["report"] = cached.report
+        yield _sse(report_event)
         return
 
     if not live_runs_enabled():
@@ -156,7 +159,17 @@ def _generate_events(target: str):
     if "error" in result_holder:
         yield _sse({"stage": "_report_error", "detail": result_holder["error"]})
     else:
-        yield _sse({"stage": "_report", "html": render_html(result_holder["result"].report)})
+        result = result_holder["result"]
+        report_event = {"stage": "_report", "html": render_html(result.report)}
+        # result.report is None only in tests that stub run_pipeline with a
+        # bare PipelineResult -- a real run always produces a Report.
+        if result.report is not None:
+            report_event["report"] = report_to_dict(
+                result.report,
+                served="live",
+                nonclinical_label_count=result.nonclinical_label_count,
+            )
+        yield _sse(report_event)
 
 
 @app.get("/api/generate")
