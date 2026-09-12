@@ -609,7 +609,7 @@ function renderRunMeta() {
     ["resolver", resolver ? resolverSummary(resolver) : "Resolved live against openFDA"],
     ["corpus", resolver ? corpusSummary(resolver) : "Label set as returned by the API"],
     ["retrieved", rd && rd.generated_at ? rd.generated_at.slice(0, 10) : "Date stamped by the run"],
-    ["served", state.served === "cached" ? "Pre-computed demo run" : "Live run"],
+    ["served", servedSummary(rd)],
   ];
   document.getElementById("run-meta-rows").innerHTML = rows.map(
     ([k, v]) => `<div class="fp-run-meta-row"><span class="fp-run-meta-key mono">${escapeHtml(k)}</span><span class="fp-run-meta-val">${escapeHtml(v)}</span></div>`
@@ -624,10 +624,22 @@ function resolverSummary(resolver) {
 
 function corpusSummary(resolver) {
   if (resolver.total_labels == null) return "No labels found";
+  const base = resolver.path === "pharm_class_moa"
+    ? `${resolver.total_labels} labels in class`
+    : `${resolver.total_labels} labels by full-text match`;
   if (resolver.nonclinical_label_count != null) {
-    return `${resolver.total_labels} labels in class, ${resolver.nonclinical_label_count} with nonclinical text`;
+    return `${base} · nonclinical text in ${resolver.nonclinical_label_count} retrieved labels`;
   }
-  return `${resolver.total_labels} labels in class`;
+  return base;
+}
+
+function servedSummary(rd) {
+  if (state.served !== "cached") return "Live run";
+  const seconds = rd && rd.duration_seconds != null ? Math.round(rd.duration_seconds) : null;
+  if (rd && rd.run_label && seconds != null) {
+    return `Pre-computed demo run · ${rd.run_label} · ${seconds}s when run live`;
+  }
+  return "Pre-computed demo run";
 }
 
 /* ---------- render: pipeline card (right panel) ---------- */

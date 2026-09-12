@@ -19,7 +19,7 @@ from backend.interpretation_swarm import missing_stances
 from backend.openfda_client import DrugEvidence, gather_evidence_for_drugs
 from backend.report_renderer import EvaluationScore, InterpretationCard, Report, ReportSection
 from backend.section_graph import build_grounded_example, run_section_graph
-from backend.target_resolution import resolve_target
+from backend.target_resolution import describe_search_trail, format_searched_at, resolve_target
 
 ProgressCallback = Callable[[str, str, Optional[str]], None]  # (stage, status, detail)
 
@@ -45,8 +45,8 @@ def _empty_target_report(target: str, resolution, ledger: CitationLedger) -> Rep
                 1,
                 "Target Profile & Biological Function",
                 f"<p><strong>No evidence found.</strong> Search path: "
-                f"{[a.path for a in resolution.search_trail]}, 0 hits, "
-                f"retrieved {resolution.searched_at}.</p>",
+                f"{describe_search_trail(resolution.search_trail)}, 0 hits, "
+                f"retrieved {format_searched_at(resolution.searched_at)}.</p>",
             )
         ],
         ledger=ledger,

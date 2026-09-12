@@ -1,7 +1,6 @@
 """F11 -- curated demo targets + dry runs. Seed data as a first-class feature.
 
-The three confirmed demo targets (GLP-1R the Beat-3 hero, HER2, KRAS -- see
-project_brief.md Section 1.6, decided 2026-09-11) get their reports
+The three confirmed demo targets (GLP-1R, HER2, KRAS) get their reports
 pre-computed and cached to disk. This directly implements F13's testability
 constraint: a live Bedrock call per juror click is not sustainable for a
 project that must stay freely testable through 2026-10-08, so the three

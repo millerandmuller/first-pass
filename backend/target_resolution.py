@@ -100,6 +100,31 @@ class TargetResolution:
         return self.resolution_path != "not_found" and bool(self.drug_names)
 
 
+_PATH_DESCRIPTIONS = {
+    "full_text": "full-text label search",
+    "pharm_class_moa": "openFDA class search",
+}
+
+
+def describe_search_trail(search_trail: list[SearchAttempt]) -> str:
+    """Human-readable summary of which search paths were tried, in order,
+    without repeats -- e.g. "openFDA class search; full-text label search"."""
+    seen: list[str] = []
+    for attempt in search_trail:
+        label = _PATH_DESCRIPTIONS.get(attempt.path, attempt.path)
+        if label not in seen:
+            seen.append(label)
+    return "; ".join(seen)
+
+
+def format_searched_at(searched_at: str) -> str:
+    """`searched_at` as a plain UTC timestamp for display, e.g.
+    "2026-09-12 21:44 UTC" -- the stored value is a full ISO-8601 string
+    with microseconds, which reads as machine output, not something
+    written for a person."""
+    return datetime.fromisoformat(searched_at).strftime("%Y-%m-%d %H:%M UTC")
+
+
 def _extract_drug_names(records: list[dict], limit: int = 25) -> list[str]:
     names: list[str] = []
     seen: set[str] = set()
