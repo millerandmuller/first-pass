@@ -2,14 +2,14 @@
 
 **Target in. Cited Target Safety Assessment out.**
 
-A regulatory/nonclinical toxicologist starting work on a new drug target spends days clicking through FDA and EPA portals before she can even begin forming a judgment on adversity. First Pass automates that first pass: type a target name, and minutes later a complete, fully-cited Target Safety Assessment is on the table — the same document a toxicologist hands to a Discovery team or Safety Committee, and the document that later feeds CTD Module 2.4/2.6.
+A regulatory/nonclinical toxicologist starting work on a new drug target clicks through FDA and EPA portals by hand before she can even begin forming a judgment on adversity. First Pass automates that first pass: type a target name, and a complete, fully-cited Target Safety Assessment is on the table — the same document a toxicologist hands to a Discovery team or Safety Committee, and the document that later feeds CTD Module 2.4/2.6.
 
 **Live:** https://first-pass-beige.vercel.app (three demo targets — `GLP-1R`, `HER2`, `KRAS` — return instantly from a pre-computed run; any other target name runs the full pipeline live, in ~100-165s)
 
 ## The principles
 
 1. **No sentence without a clickable source.** Every claim carries an inline citation; every citation resolves to a full bibliography entry with document title, FDA application number, date, and URL.
-2. **The dispute stays in the document.** Where four interpretations of a finding are possible, the report shows all four with their grounding scores — not a smoothed majority opinion.
+2. **The dispute stays in the document.** Up to four interpretations of a finding are argued, each with its grounding score — not a smoothed majority opinion. If the interpretation panel's handoff chain drops a stance, even after its one automatic retry, that stance renders as a visible gap card naming it, never a fabricated bid.
 3. **Deterministic code decides, the model proposes.** Citation validity and grounding are word-overlap arithmetic against the real retrieved text, not a second model call.
 4. **The judgment stays with the human.** First Pass never sets a NOAEL, never makes an acceptance statement, and never gives safety advice.
 5. **The morning report is the interface.** Target name in, finished document out. No chat, no live agent log, no supervision required.
@@ -52,7 +52,7 @@ The three curated demo targets are pre-computed and served from cache with a vis
 
 **Known limitation:** the live-run rate limit is best-effort and per function instance, not a hard global cap. The hard stop is the `LIVE_RUNS_ENABLED` environment variable: set it to `0` and every live run is refused with a plain message while the three cached demo targets keep working. A scoped AWS billing alarm notifies on spend but does not stop anything. Coordinating the rate limit across instances would need an external shared store (Redis, DynamoDB), which was out of scope for this build.
 
-**Two questions an AWS engineer will ask.** Why does this run as a Vercel function calling Bedrock and AgentCore Evaluations directly instead of on AgentCore Runtime? Runtime was time-boxed and consciously descoped: it needs a container built and pushed to ECR, the pipeline rewritten to the AgentCore SDK's `@app.entrypoint` contract, and the Vercel side switched from a direct Bedrock call to a SigV4-signed `InvokeAgentRuntime` call — a second infrastructure build comparable in size to the API layer already shipped. The AgentCore Evaluations integration is real and works independently of the hosting choice; Runtime remains a possible post-hackathon step. Why does the four-agent Swarm run in a fixed handoff order instead of scoring in parallel? Each stance agent has to commit to its own interpretation before it can see the others' bids, so independence of interpretation is the design goal, not an accident of the API. The order is Swarm's own `handoff_to_agent` mechanism doing real orchestration; the bids themselves are scored afterward by deterministic code, never by an agent.
+**Two questions an AWS engineer will ask.** Why does this run as a Vercel function calling Bedrock and AgentCore Evaluations directly instead of on AgentCore Runtime? Runtime was time-boxed and consciously descoped: it needs a container built and pushed to ECR, the pipeline rewritten to the AgentCore SDK's `@app.entrypoint` contract, and the Vercel side switched from a direct Bedrock call to a SigV4-signed `InvokeAgentRuntime` call — a second infrastructure build comparable in size to the API layer already shipped. The AgentCore Evaluations integration is real and works independently of the hosting choice; Runtime remains a possible post-hackathon step. Why does the four-agent Swarm run in a fixed handoff order instead of scoring in parallel? Each stance agent has to commit to its own interpretation before it can see the others' bids, so independence of interpretation is the design goal, not an accident of the API. The order is Swarm's own `handoff_to_agent` mechanism doing real orchestration; the bids themselves are scored afterward by deterministic code, never by an agent. That fixed chain has one observed weak point: an agent can end its turn without calling the handoff tool, which drops every stance after it. The pipeline re-enters the chain once at the first stance that never bid; a stance still missing after that renders as a visible gap card, never a fabricated bid or a silently shorter panel.
 
 ## Tech stack
 
@@ -72,7 +72,7 @@ export AWS_REGION=us-west-2  # region matters: see backend/config.py
 uvicorn backend.api:app --reload --port 8000
 ```
 
-Then open `http://localhost:8000`. Running the test suite (`pytest`) hits real openFDA and, where Bedrock access is available, real Bedrock/AgentCore calls — no mocks.
+Then open `http://localhost:8000`. Running the test suite (`pytest`) hits real openFDA and, where Bedrock access is available, real Bedrock/AgentCore calls. 10 of the 90 tests monkeypatch the HTTP layer (rate limiting, the kill switch, config defaults) rather than the retrieval/scoring/citation science underneath, which is exercised live.
 
 ## What this deliberately does not do
 
