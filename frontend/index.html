@@ -4,194 +4,984 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>First Pass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  body {
-    font-family: "Helvetica Neue", Arial, sans-serif;
-    max-width: 640px;
-    margin: 8vh auto 4rem;
-    padding: 0 1.5rem;
-    color: #1a1d23;
+  /* Design tokens -- design_handoff_first_pass_ui/tokens.css, used directly,
+     plus --desk and --shadow-sheet (First Pass app v4.dc.html's own
+     additions for the at-rest specimen sheet, not yet in the shared file). */
+  :root {
+    --bg: #F8F9FA; --surface: #FFFFFF; --muted: #F3F4F6; --inset: #FAFBFC;
+    --desk: #ECEEF0;
+    --ink: #000000; --text: #1F2937; --body: #374151; --slate: #6B7280;
+    --border: #E5E7EB; --border2: #D1D5DB;
+    --red: #D32F2F; --green: #22C55E; --grounded: rgba(34,197,94,.16);
+    --btn-bg: #1F2937; --btn-bg-h: #111827; --btn-fg: #FFFFFF;
+    --shadow-sm: 0 1px 3px rgba(17,24,39,.06); --shadow-lg: 0 4px 24px rgba(17,24,39,.08);
+    --shadow-sheet: 0 18px 44px rgba(17,24,39,.16);
   }
-  h1 { font-size: 1.6rem; margin-bottom: 0.2rem; }
-  p.tagline { color: #5b6472; margin-top: 0; }
-  .input-row { display: flex; gap: 0.6rem; margin: 2rem 0 1.5rem; }
-  input[type=text] {
-    flex: 1;
-    font-size: 1.1rem;
-    padding: 0.7rem 0.9rem;
-    border: 2px solid #1a1d23;
-    border-radius: 6px;
+  :root[data-theme="dark"] {
+    --bg: #0A0A0A; --surface: #141414; --muted: #1A1A1A; --inset: #0F0F0F;
+    --desk: #000000;
+    --ink: #FFFFFF; --text: #E5E5E5; --body: #C9C9C9; --slate: #A3A3A3;
+    --border: #262626; --border2: #343434;
+    --red: #FF8A80; --green: #4ADE80; --grounded: rgba(74,222,128,.18);
+    --btn-bg: #FFFFFF; --btn-bg-h: #E5E5E5; --btn-fg: #000000;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.5); --shadow-lg: 0 4px 24px rgba(0,0,0,.6);
+    --shadow-sheet: 0 18px 44px rgba(0,0,0,.75);
   }
-  button {
-    font-size: 1.05rem;
-    padding: 0.7rem 1.4rem;
-    background: #1f4e8c;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-  }
-  button:disabled { background: #9aa5b1; cursor: default; }
-  ul.progress { list-style: none; padding: 0; }
-  ul.progress li {
-    padding: 0.4rem 0;
-    color: #9aa5b1;
-    font-size: 0.95rem;
-  }
-  ul.progress li.running { color: #1f4e8c; font-weight: 600; }
-  ul.progress li.done { color: #1e7a34; }
-  ul.progress li.pending { color: #b3261e; }
-  ul.progress li.empty { color: #b3261e; }
-  #report-frame {
-    width: 100%;
-    height: 80vh;
-    border: 1px solid #d8dce2;
-    border-radius: 8px;
-    margin-top: 1.5rem;
-    display: none;
-  }
-  #open-report-btn {
-    display: none;
-    margin-top: 1rem;
-    background: white;
-    color: #1f4e8c;
-    border: 2px solid #1f4e8c;
-  }
-  #error-box {
-    display: none;
-    background: #fce8e6;
-    color: #b3261e;
-    padding: 0.8rem 1rem;
-    border-radius: 6px;
-    margin-top: 1rem;
-  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; font-family: Inter, system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+  a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border2); }
+  a:hover { text-decoration-color: currentColor; }
+  input, button { font-family: inherit; }
+  input::placeholder { color: var(--slate); opacity: .75; }
+  [hidden] { display: none !important; }
+  @keyframes fpPulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+  .mono { font-family: 'Fira Code', monospace; }
+
+  /* Shell -- no flex-wrap: the two columns never stack (v4's own root div
+     omits it; only the wordmark row and a few inner rows wrap internally). */
+  .fp-shell { display: flex; align-items: stretch; min-height: 100vh; background: var(--bg); }
+  .fp-aside { flex: 0 1 520px; min-width: 340px; background: var(--surface); border-right: 1px solid var(--border); padding: 30px 36px 28px; display: flex; flex-direction: column; gap: 24px; height: 100vh; overflow-y: auto; }
+  .fp-main { flex: 1 1 620px; min-width: 0; height: 100vh; overflow-y: auto; background: var(--desk); padding: 30px 44px 56px; display: flex; flex-direction: column; gap: 18px; }
+
+  /* Wordmark row */
+  .fp-wordmark-row { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 16px; }
+  .fp-wordmark-group { display: flex; align-items: stretch; gap: 10px; min-width: 0; }
+  .fp-brand-bar { width: 5px; background: var(--red); }
+  .fp-wordmark-text { display: flex; flex-direction: column; gap: 2px; }
+  .fp-wordmark { font-size: 17px; font-weight: 800; letter-spacing: -.02em; color: var(--ink); line-height: 1.2; }
+  .fp-url { font-size: 10.5px; color: var(--slate); }
+  .fp-theme-toggle { display: flex; flex: 0 0 auto; gap: 2px; background: var(--muted); border: 1px solid var(--border); border-radius: 9999px; padding: 3px; }
+  .fp-theme-btn { cursor: pointer; border: none; border-radius: 9999px; padding: 5px 12px; font-size: 12px; font-weight: 600; transition: background 160ms; background: transparent; color: var(--slate); }
+  .fp-theme-btn.active { background: var(--btn-bg); color: var(--btn-fg); }
+
+  /* Headline */
+  .fp-headline { display: flex; flex-direction: column; gap: 11px; }
+  .fp-headline h1 { margin: 0; font-size: 33px; font-weight: 800; letter-spacing: -.03em; line-height: 1.12; color: var(--ink); }
+  .fp-subhead { font-size: 15.5px; line-height: 1.6; color: var(--body); }
+  .fp-link-btn { align-self: flex-start; cursor: pointer; background: transparent; border: none; padding: 0; font-size: 13px; font-weight: 600; color: var(--slate); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border2); transition: color 160ms; }
+  .fp-link-btn:hover { color: var(--text); }
+  .fp-link-btn.mono { font-size: 11px; }
+  .fp-plain-body { border-left: 2px solid var(--border2); padding: 2px 0 2px 14px; font-size: 13px; line-height: 1.6; color: var(--slate); }
+
+  /* Input block */
+  .fp-input-block { display: flex; flex-direction: column; gap: 11px; }
+  .fp-field-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+  .fp-field-label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--slate); }
+  .fp-field-hint { font-size: 10.5px; color: var(--slate); }
+  .fp-input { width: 100%; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 15px 16px; font-size: 20px; font-weight: 600; color: var(--ink); outline: none; transition: border-color 160ms, box-shadow 160ms; }
+  .fp-input:focus { border-color: var(--border2); box-shadow: 0 0 0 3px rgba(211,47,47,.18); }
+  .fp-btn-primary { width: 100%; cursor: pointer; background: var(--btn-bg); color: var(--btn-fg); border: none; border-radius: 9999px; padding: 14px 24px; font-size: 15px; font-weight: 600; box-shadow: var(--shadow-sm); transition: background 160ms, transform 160ms; }
+  .fp-btn-primary:hover { background: var(--btn-bg-h); transform: translateY(-1px); }
+  .fp-btn-primary:active { transform: none; }
+  .fp-btn-primary:disabled { opacity: .55; cursor: default; transform: none; }
+  .fp-chip-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .fp-chip { cursor: pointer; background: var(--muted); border: 1px solid var(--border); border-radius: 9999px; padding: 7px 15px; font-size: 13.5px; font-weight: 600; color: var(--text); transition: background 160ms, border-color 160ms, transform 160ms; }
+  .fp-chip:hover { background: var(--surface); border-color: var(--border2); transform: translateY(-1px); }
+  .fp-chip:active { transform: none; }
+
+  /* Progress / run-meta panels (shared shell) */
+  .fp-panel { border: 1px solid var(--border); border-radius: 12px; background: var(--inset); padding: 16px 18px; display: flex; flex-direction: column; gap: 11px; }
+  .fp-progress-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .fp-progress-status { display: flex; align-items: center; gap: 9px; min-width: 0; }
+  .fp-status-dot { flex: 0 0 7px; width: 7px; height: 7px; border-radius: 9999px; background: var(--red); animation: fpPulse 1.4s ease-in-out infinite; }
+  .fp-status-text { font-size: 13px; font-weight: 600; color: var(--text); }
+  .fp-cancel-btn { flex: 0 0 auto; cursor: pointer; background: transparent; border: 1px solid var(--border); border-radius: 9999px; padding: 4px 12px; font-size: 11px; color: var(--slate); }
+  .fp-cancel-btn:hover { background: var(--muted); }
+  .fp-run-meta-title { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--slate); }
+  .fp-run-meta-row { display: flex; gap: 14px; align-items: baseline; border-top: 1px solid var(--border); padding-top: 9px; }
+  .fp-run-meta-key { flex: 0 0 100px; font-size: 11px; color: var(--slate); }
+  .fp-run-meta-val { flex: 1 1 auto; min-width: 0; font-size: 13px; line-height: 1.5; color: var(--body); }
+
+  .fp-footer { margin-top: auto; font-size: 11px; line-height: 1.5; color: var(--slate); }
+
+  /* Pipeline card */
+  .fp-pipeline-card { flex: 0 0 auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-sm); padding: 16px 22px 18px; display: flex; flex-direction: column; gap: 14px; }
+  .fp-pipeline-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+  .fp-pipeline-title { font-size: 14px; font-weight: 700; color: var(--ink); }
+  .fp-pipeline-row { display: flex; align-items: stretch; gap: 13px; }
+  .fp-pipeline-dotcol { position: relative; flex: 0 0 11px; display: flex; justify-content: center; align-items: flex-start; }
+  .fp-pipeline-rail { position: absolute; top: 11px; bottom: 0; width: 2px; background: var(--border2); transition: background 220ms; }
+  .fp-pipeline-dot { position: relative; width: 11px; height: 11px; border-radius: 9999px; background: var(--surface); border: 2px solid var(--border2); transition: border-color 220ms; }
+  .fp-pipeline-dot.done { border-color: var(--green); }
+  .fp-pipeline-dot.current { border-color: var(--red); animation: fpPulse 1.4s ease-in-out infinite; }
+  .fp-pipeline-body { flex: 1 1 auto; min-width: 0; margin-top: -3px; padding-bottom: 11px; display: flex; flex-direction: column; gap: 4px; }
+  .fp-pipeline-row.expanded .fp-pipeline-body { padding-bottom: 14px; }
+  .fp-pipeline-label-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 10px; min-width: 0; }
+  .fp-pipeline-num { font-size: 10px; color: var(--slate); }
+  .fp-pipeline-name { font-size: 13.5px; font-weight: 700; color: var(--slate); }
+  .fp-pipeline-row.touched .fp-pipeline-name, .fp-pipeline-row.done .fp-pipeline-name { color: var(--text); }
+  .fp-pipeline-tag { font-size: 10.5px; color: var(--slate); }
+  .fp-pipeline-desc { font-size: 12.5px; line-height: 1.5; color: var(--body); max-width: 68ch; }
+  .fp-facts-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; border-top: 1px solid var(--border); padding-top: 13px; }
+  .fp-fact { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+  .fp-fact-key { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--slate); }
+  .fp-fact-val { font-size: 12.5px; color: var(--text); }
+  .fp-why-toggle { margin-left: auto; }
+  .fp-why-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(224px, 1fr)); gap: 14px 22px; border-top: 1px solid var(--border); padding-top: 13px; }
+  .fp-why-grid p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--body); }
+
+  /* Sections-written-so-far (running) */
+  .fp-sections-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-lg); padding: 22px 26px; display: flex; flex-direction: column; gap: 12px; }
+  .fp-sections-card-title { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--slate); }
+  .fp-sections-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 2px 20px; }
+  .fp-section-progress-row { display: flex; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); }
+  .fp-section-progress-num { flex: 0 0 20px; font-size: 11px; color: var(--slate); }
+  .fp-section-progress-title { flex: 1 1 auto; min-width: 0; font-size: 13px; font-weight: 600; color: var(--slate); }
+  .fp-section-progress-title.written { color: var(--text); }
+  .fp-section-progress-state { flex: 0 0 auto; font-size: 10.5px; color: var(--slate); }
+  .fp-section-progress-state.written { color: var(--green); }
+  .fp-section-progress-state.writing { color: var(--red); }
+
+  /* Pane label (delivered) */
+  .fp-pane-label { display: flex; align-items: center; gap: 10px; }
+  .fp-pane-dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 9999px; background: var(--green); }
+  .fp-pane-text { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--slate); }
+
+  /* Report wrapper + specimen page stack */
+  .fp-report-wrap { position: relative; padding: 18px 0 6px; transition: padding 420ms cubic-bezier(.22,1,.36,1); }
+  .fp-report-wrap.delivered { padding: 0 0 6px; }
+  .fp-page-strip { position: absolute; left: 26px; right: 26px; top: 0; height: 64px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px 12px 0 0; box-shadow: var(--shadow-sm); transform: rotate(-1.1deg); transform-origin: 50% 100%; }
+  .fp-page-strip + .fp-page-strip { left: 13px; right: 13px; top: 8px; transform: rotate(.75deg); }
+  .fp-report-inner { position: relative; }
+  .fp-corner-tab { position: absolute; z-index: 2; top: -11px; left: 30px; display: flex; align-items: center; gap: 8px; background: var(--red); color: var(--bg); border-radius: 9999px; padding: 6px 14px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; box-shadow: var(--shadow-sm); }
+  .fp-report-card { position: relative; z-index: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-sheet); padding: 34px 38px 30px; display: flex; flex-direction: column; gap: 24px; }
+  .fp-caption-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; padding: 14px 4px 0; font-size: 10.5px; color: var(--slate); }
+
+  /* Report header */
+  .fp-report-header { display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--border); padding-bottom: 18px; }
+  .fp-report-kicker { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--slate); }
+  .fp-report-target { font-size: 30px; font-weight: 800; letter-spacing: -.028em; color: var(--ink); line-height: 1.12; }
+  .fp-badge-row { display: flex; flex-wrap: wrap; gap: 7px 14px; align-items: center; }
+  .fp-eval-pill { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; color: var(--slate); white-space: nowrap; }
+  .fp-eval-pill .val { color: var(--text); }
+  .fp-served-pill { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--red); border-radius: 8px; padding: 4px 11px; font-size: 11px; color: var(--text); }
+
+  .fp-specimen-notice { display: flex; align-items: flex-start; gap: 12px; background: var(--inset); border: 1px solid var(--border); border-radius: 10px; padding: 13px 16px; }
+  .fp-specimen-notice .rule { flex: 0 0 3px; align-self: stretch; border-radius: 2px; background: var(--border2); }
+  .fp-specimen-notice .txt { flex: 1 1 auto; min-width: 0; font-size: 13px; line-height: 1.55; color: var(--body); }
+
+  /* Report sections */
+  .fp-section { display: flex; flex-direction: column; gap: 9px; }
+  .fp-section + .fp-section { border-top: 1px solid var(--border); padding-top: 18px; }
+  .fp-section-head-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+  .fp-section-kicker { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--slate); }
+  .fp-section-body { font-size: 14.5px; line-height: 1.65; color: var(--body); }
+  .fp-section-body p { margin: 0 0 0.9em; }
+  .fp-section-body p:last-child { margin-bottom: 0; }
+  .fp-section-body .ref-link { font-size: 11px; color: var(--red); vertical-align: super; text-decoration: none; }
+  .fp-section-body .curated-ref { color: var(--slate); }
+  .fp-continuation { display: flex; align-items: center; gap: 10px; }
+  .fp-continuation .rule { flex: 0 0 18px; height: 1px; background: var(--border); }
+  .fp-continuation .rule.grow { flex: 1 1 auto; }
+  .fp-continuation .txt { font-size: 10.5px; color: var(--slate); }
+  .fp-curated-marker { align-self: flex-end; display: inline-flex; align-items: center; gap: 7px; font-size: 10.5px; color: var(--slate); background: var(--muted); border: 1px solid var(--border); border-radius: 9999px; padding: 3px 10px; }
+
+  /* Grounded-example provenance callout (section 03) */
+  .fp-grounded-block { display: flex; gap: 0; padding-left: 34px; padding-top: 2px; }
+  .fp-grounded-elbow { flex: 0 0 22px; height: 26px; border-left: 2px solid var(--green); border-bottom: 2px solid var(--green); border-bottom-left-radius: 8px; }
+  .fp-grounded-callout-wrap { flex: 1 1 auto; min-width: 0; padding-top: 18px; }
+  .fp-grounded-callout { border: 1px solid var(--border); border-left: 2px solid var(--green); border-radius: 0 10px 10px 0; background: var(--inset); padding: 13px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .fp-grounded-callout-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 14px; }
+  .fp-grounded-callout-label { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--slate); }
+  .fp-grounded-callout-tag { font-size: 10.5px; color: var(--red); }
+  .fp-grounded-excerpt { font-size: 12px; line-height: 1.6; color: var(--body); }
+  .fp-grounded-callout-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; border-top: 1px solid var(--border); padding-top: 8px; }
+  .fp-grounded-source { font-size: 10.5px; color: var(--slate); }
+  .fp-grounded-score { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 10.5px; color: var(--slate); }
+  .fp-grounded-note { font-size: 10.5px; color: var(--slate); padding: 8px 2px 0; }
+  .grounded { background: var(--grounded); border-bottom: 1px solid var(--green); }
+  .ungrounded { color: var(--slate); border-bottom: 1px dashed var(--border2); }
+
+  /* Gap row (honest empty state) */
+  .fp-gap-row { border: 1px solid var(--border); border-left: 3px solid var(--red); border-radius: 10px; background: var(--inset); padding: 16px 18px; display: flex; flex-direction: column; gap: 7px; }
+  .fp-gap-title { font-size: 14.5px; font-weight: 700; color: var(--ink); }
+  .fp-gap-path { font-size: 12px; line-height: 1.6; color: var(--body); }
+  .fp-gap-note { font-size: 13.5px; line-height: 1.55; color: var(--slate); }
+
+  /* Adversity grid (section 05) */
+  .fp-adversity-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(184px, 1fr)); gap: 12px; }
+  .fp-adversity-card { padding: 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--inset); display: flex; flex-direction: column; gap: 8px; }
+  .fp-adversity-card.strongest { border: 2px solid var(--green); background: var(--surface); }
+  .fp-adversity-card.gap { border: 1px dashed var(--border2); background: var(--inset); }
+  .fp-adversity-card.gap .fp-adversity-title { color: var(--slate); }
+  .fp-adversity-title { font-size: 13.5px; font-weight: 700; color: var(--text); }
+  .fp-adversity-card.strongest .fp-adversity-title { color: var(--ink); }
+  .fp-adversity-desc { font-size: 12.5px; line-height: 1.45; color: var(--slate); }
+  .fp-adversity-bar-track { height: 5px; border-radius: 3px; background: var(--border); overflow: hidden; }
+  .fp-adversity-bar-fill { display: block; height: 5px; border-radius: 3px; background: var(--border2); }
+  .fp-adversity-card.strongest .fp-adversity-bar-fill { background: var(--green); }
+  .fp-adversity-caption { font-size: 10.5px; color: var(--slate); }
+  .fp-adversity-footnote { font-size: 12.5px; line-height: 1.55; color: var(--slate); }
+
+  /* Precedent-style prose fallback + bibliography */
+  .fp-bib-row { display: flex; gap: 14px; align-items: baseline; padding: 9px 0; border-top: 1px solid var(--border); }
+  .fp-bib-tag { flex: 0 0 52px; font-size: 11px; }
+  .fp-bib-tag.retrieved { color: var(--red); }
+  .fp-bib-tag.curated { color: var(--slate); }
+  .fp-bib-text { flex: 1 1 auto; min-width: 0; font-size: 13px; line-height: 1.55; color: var(--body); }
+
+  /* Card footer */
+  .fp-card-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 20px; border-top: 1px solid var(--border); padding-top: 16px; }
+  .fp-disclaimer { flex: 1 1 240px; min-width: 0; font-size: 12.5px; line-height: 1.55; color: var(--slate); max-width: 56ch; }
+  .fp-btn-group { display: flex; flex-wrap: wrap; gap: 8px; flex: 0 1 auto; }
+  .fp-btn-secondary { cursor: pointer; background: var(--muted); border: 1px solid var(--border); border-radius: 9999px; padding: 9px 16px; font-size: 13px; font-weight: 600; color: var(--text); transition: background 160ms; }
+  .fp-btn-secondary:hover { background: var(--surface); border-color: var(--border2); }
+  .fp-btn-cta { flex: 0 1 auto; cursor: pointer; background: var(--btn-bg); color: var(--btn-fg); border: none; border-radius: 9999px; padding: 11px 20px; font-size: 13.5px; font-weight: 600; box-shadow: var(--shadow-sm); transition: background 160ms, transform 160ms; }
+  .fp-btn-cta:hover { background: var(--btn-bg-h); transform: translateY(-1px); }
+  .fp-btn-cta:active { transform: none; }
+
+  /* Error banner */
+  .fp-error-banner { border: 1px solid var(--border); border-left: 3px solid var(--red); border-radius: 10px; background: var(--inset); padding: 12px 14px; font-size: 13px; line-height: 1.5; color: var(--body); }
 </style>
 </head>
 <body>
 
-<h1>First Pass</h1>
-<p class="tagline">Target in. Cited Target Safety Assessment out.</p>
-<p class="tagline">Type a drug target. Get the cited safety report a toxicologist spends days assembling.</p>
+<div class="fp-shell">
 
-<div class="input-row">
-  <input type="text" id="target-input" placeholder="e.g. GLP-1R, HER2, KRAS" autofocus>
-  <button id="submit-btn">Generate</button>
+  <aside class="fp-aside">
+
+    <div class="fp-wordmark-row">
+      <div class="fp-wordmark-group">
+        <div class="fp-brand-bar"></div>
+        <div class="fp-wordmark-text">
+          <div class="fp-wordmark">First Pass</div>
+          <div class="fp-url mono">firstpass.scienceexperts.ai</div>
+        </div>
+      </div>
+      <div class="fp-theme-toggle" id="theme-toggle">
+        <button type="button" class="fp-theme-btn" data-theme-choice="light">Light</button>
+        <button type="button" class="fp-theme-btn" data-theme-choice="dark">Dark</button>
+      </div>
+    </div>
+
+    <div class="fp-headline">
+      <h1>Target in. Cited Target Safety Assessment out.</h1>
+      <div class="fp-subhead">Every line carries the source it came from, and the sections with no evidence behind them say so.</div>
+      <button type="button" class="fp-link-btn" id="plain-toggle">What is a Target Safety Assessment?</button>
+      <div class="fp-plain-body" id="plain-body" hidden>A drug works by acting on a target, a protein in the body. Before anyone doses an animal or a person, someone has to answer what is already known about the harm of hitting that target. The answer is a Target Safety Assessment, and today it is written by hand from scattered regulatory archives.</div>
+    </div>
+
+    <div class="fp-input-block">
+      <div class="fp-field-row">
+        <div class="fp-field-label mono">Drug target</div>
+        <div class="fp-field-hint mono">gene symbol, protein, or receptor name</div>
+      </div>
+      <input type="text" id="target-input" class="fp-input" placeholder="GLP-1R" autocomplete="off">
+      <button type="button" id="run-btn" class="fp-btn-primary">Generate report</button>
+
+      <div class="fp-chip-row" id="preset-row">
+        <span class="mono" style="font-size:10.5px; color:var(--slate)">Ready now:</span>
+        <button type="button" class="fp-chip" data-preset="GLP-1R">GLP-1R</button>
+        <button type="button" class="fp-chip" data-preset="HER2">HER2</button>
+        <button type="button" class="fp-chip" data-preset="KRAS">KRAS</button>
+        <span class="mono" style="font-size:10.5px; color:var(--slate)">others run live</span>
+      </div>
+
+      <div class="fp-panel" id="progress-panel" hidden style="flex-direction:row; align-items:center; justify-content:space-between; padding:11px 14px">
+        <div class="fp-progress-status">
+          <span class="fp-status-dot"></span>
+          <span class="fp-status-text" id="status-text">Running the full pipeline</span>
+        </div>
+        <button type="button" class="fp-cancel-btn mono" id="cancel-btn">cancel</button>
+      </div>
+
+      <div class="fp-error-banner" id="error-banner" hidden></div>
+    </div>
+
+    <div class="fp-panel" id="run-meta-panel" hidden>
+      <div class="fp-run-meta-title mono">This run</div>
+      <div id="run-meta-rows"></div>
+    </div>
+
+    <div class="fp-footer mono">Public demo, free to test through October 8, 2026</div>
+  </aside>
+
+  <main class="fp-main">
+
+    <div class="fp-pipeline-card">
+      <div class="fp-pipeline-head">
+        <div class="fp-pipeline-title" id="pipeline-title">What happens when you run a target</div>
+        <button type="button" class="fp-link-btn mono" id="stages-toggle">what each stage does</button>
+      </div>
+      <div id="pipeline-rows"></div>
+      <div class="fp-facts-row">
+        <div class="fp-fact"><span class="fp-fact-key mono">Sources</span><span class="fp-fact-val">openFDA + FDA review documents</span></div>
+        <div class="fp-fact"><span class="fp-fact-key mono">Selection</span><span class="fp-fact-val">word overlap, in code</span></div>
+        <div class="fp-fact"><span class="fp-fact-key mono">Stops at</span><span class="fp-fact-val">no NOAEL, no acceptability call</span></div>
+        <button type="button" class="fp-link-btn mono fp-why-toggle" id="why-toggle">why this matters</button>
+      </div>
+      <div class="fp-why-grid" id="why-grid" hidden>
+        <p>openFDA label full text including the nonclinical toxicology section, plus FDA review documents from accessdata.fda.gov.</p>
+        <p>Word overlap between each claim and the real agency text, computed in plain code. The model proposes, the arithmetic decides.</p>
+        <p>No NOAEL, no acceptability statement. Adversity is an expert judgment and stays with the reviewing scientist.</p>
+      </div>
+    </div>
+
+    <div class="fp-sections-card" id="sections-progress-card" hidden>
+      <div class="fp-sections-card-title mono">Sections written so far</div>
+      <div class="fp-sections-grid" id="sections-progress-rows"></div>
+    </div>
+
+    <div class="fp-pane-label" id="pane-label" hidden>
+      <span class="fp-pane-dot"></span>
+      <span class="fp-pane-text mono" id="pane-label-text"></span>
+    </div>
+
+    <div class="fp-report-wrap" id="report-wrap" hidden>
+      <div id="page-stack"></div>
+      <div class="fp-report-inner">
+        <div class="fp-corner-tab mono" id="corner-tab" hidden>Example report · GLP-1R</div>
+        <div class="fp-report-card" id="report-card"></div>
+      </div>
+      <div class="fp-caption-row" id="caption-row" hidden>
+        <span class="mono">Opening of 7 sections · the full document runs several pages</span>
+        <span class="mono">Name a target on the left to get your own</span>
+      </div>
+    </div>
+
+  </main>
 </div>
 
-<ul class="progress" id="progress-list"></ul>
-<div id="error-box"></div>
-<iframe id="report-frame"></iframe>
-<button id="open-report-btn" type="button">Open report in new tab</button>
-
 <script>
-const STAGE_LABELS = {
-  cache: "Serving pre-computed demo report",
-  rate_limit: "Waiting for rate limit",
-  target_resolution: "Resolving target to approved drug names",
-  evidence_retrieval: "Retrieving FDA label & review evidence",
-  genetics_precedent: "Loading genetic/knockout precedent",
-  section_graph: "Strands Graph: writing 7 report sections (Strands Swarm for the adversity panel nested inside)",
-  evaluations: "Running AgentCore evaluations",
-  report_render: "Rendering report",
+"use strict";
+
+/* ---------- static reference data (copy, not run data) ---------- */
+
+const SECTION_TITLES = [
+  "Target profile and biological function",
+  "Genetic and knockout precedent",
+  "Class effects and known target toxicities",
+  "Regulatory and clinical precedents",
+  "Adversity and evidence weight analysis",
+  "Nonclinical recommendations, CTD 2.4 bridge",
+  "References and regulatory sources",
+];
+
+const PIPELINE_ROWS = [
+  { key: "resolve", name: "Resolve", tag: "openFDA class", stages: ["target_resolution"],
+    desc: "Target to approved drug names through the mechanism-of-action class, with a full-text fallback." },
+  { key: "retrieve", name: "Retrieve", tag: "labels + reviews", stages: ["evidence_retrieval", "genetics_precedent"],
+    desc: "Label full text and FDA review documents, two hops out from the first hit." },
+  { key: "write", name: "Write", tag: "Strands Graph · Swarm", stages: ["section_graph"],
+    desc: "One graph node per section, a Strands Swarm nested inside the writing node." },
+  { key: "score", name: "Score", tag: "plain code", stages: ["scoring"],
+    desc: "Every proposed line word-overlapped against the retrieved source text. No model in this step." },
+  { key: "evaluate", name: "Evaluate", tag: "AgentCore", stages: ["evaluations", "report_render"],
+    desc: "Builtin.Faithfulness and Builtin.Correctness scored on the finished document." },
+];
+
+const CACHED_REPLAY_TICKS = 8;
+const CACHED_REPLAY_INTERVAL_MS = 190;
+
+/* ---------- state ---------- */
+
+const state = {
+  theme: "light",
+  phase: "idle", // idle | running | delivered
+  shown: "",
+  stageStatus: {}, // backend stage key -> "running" | "done"
+  statusOverride: null,
+  errorMessage: "",
+  isCachedRun: false,
+  reportData: null,
+  reportHtml: "",
+  served: null, // "cached" | "live"
+  showPlain: false,
+  showStages: false,
+  showWhy: false,
+  eventSource: null,
+  replayTimer: null,
+  replayTick: 0,
+  specimenReportData: null, // real GLP-1R report, fetched once on load for the at-rest specimen
 };
 
-// Caption used in the demo video over this progress list: "Strands Graph
-// (7 nodes) with a Strands Swarm nested as node 5, scored by AgentCore
-// Evaluations."
+/* ---------- helpers ---------- */
 
-const input = document.getElementById("target-input");
-const button = document.getElementById("submit-btn");
-const progressList = document.getElementById("progress-list");
-const errorBox = document.getElementById("error-box");
-const reportFrame = document.getElementById("report-frame");
-const openReportBtn = document.getElementById("open-report-btn");
-
-// The report is rendered into the iframe via `srcdoc`, which traps the
-// document -- the print stylesheet in report.html.jinja is unreachable by
-// Ctrl+P on the outer page. This button opens the same HTML as a real
-// standalone document in a new tab, where the browser's own print dialog
-// can see the @media print rules.
-let lastReportHtml = "";
-
-function resetUI() {
-  progressList.innerHTML = "";
-  errorBox.style.display = "none";
-  errorBox.textContent = "";
-  reportFrame.style.display = "none";
-  reportFrame.srcdoc = "";
-  openReportBtn.style.display = "none";
-  lastReportHtml = "";
+function normalizeTarget(v) {
+  return String(v || "").trim().toUpperCase();
 }
 
-openReportBtn.addEventListener("click", () => {
-  if (!lastReportHtml) return;
-  const blob = new Blob([lastReportHtml], { type: "text/html" });
+function escapeHtml(s) {
+  const div = document.createElement("div");
+  div.textContent = String(s == null ? "" : s);
+  return div.innerHTML;
+}
+
+/* ---------- theme ---------- */
+
+function applyTheme(theme) {
+  state.theme = theme;
+  document.documentElement.setAttribute("data-theme", theme);
+  try { window.localStorage.setItem("firstpass-theme", theme); } catch (e) { /* private mode */ }
+  document.querySelectorAll(".fp-theme-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.themeChoice === theme);
+  });
+}
+
+function initTheme() {
+  let saved = null;
+  try { saved = window.localStorage.getItem("firstpass-theme"); } catch (e) { saved = null; }
+  if (saved === "dark" || saved === "light") {
+    applyTheme(saved);
+  } else {
+    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyTheme(prefersDark ? "dark" : "light");
+  }
+}
+
+document.getElementById("theme-toggle").addEventListener("click", (e) => {
+  const btn = e.target.closest(".fp-theme-btn");
+  if (btn) applyTheme(btn.dataset.themeChoice);
+});
+
+/* ---------- SSE run lifecycle ---------- */
+
+const input = document.getElementById("target-input");
+const runBtn = document.getElementById("run-btn");
+
+function stopEverything() {
+  if (state.eventSource) { state.eventSource.close(); state.eventSource = null; }
+  if (state.replayTimer) { clearTimeout(state.replayTimer); state.replayTimer = null; }
+}
+
+function submitTarget(overrideTarget) {
+  const typed = typeof overrideTarget === "string" ? overrideTarget : input.value;
+  const target = normalizeTarget(typed) || "GLP-1R";
+  startRun(target);
+}
+
+function startRun(target) {
+  stopEverything();
+  state.phase = "running";
+  state.shown = target;
+  state.stageStatus = {};
+  state.statusOverride = null;
+  state.errorMessage = "";
+  state.isCachedRun = false;
+  state.reportData = null;
+  state.reportHtml = "";
+  state.served = null;
+  render();
+
+  const source = new EventSource(`/api/generate?target=${encodeURIComponent(target)}`);
+  state.eventSource = source;
+  source.onmessage = (msg) => {
+    let evt;
+    try { evt = JSON.parse(msg.data); } catch (e) { return; }
+    handleEvent(evt);
+  };
+  source.onerror = () => {
+    if (state.phase !== "running") return;
+    stopEverything();
+    state.phase = "idle";
+    state.errorMessage = "Connection to the server was lost.";
+    render();
+  };
+}
+
+function cancelRun() {
+  stopEverything();
+  state.phase = "idle";
+  state.statusOverride = null;
+  render();
+}
+
+function handleEvent(evt) {
+  if (evt.stage === "cache") {
+    state.isCachedRun = true;
+    render();
+    return;
+  }
+  if (evt.stage === "rate_limit") {
+    state.statusOverride = evt.detail || "Waiting for the live-run rate limit";
+    render();
+    return;
+  }
+  if (evt.stage === "_report") {
+    if (state.eventSource) { state.eventSource.close(); state.eventSource = null; }
+    state.reportHtml = evt.html || "";
+    state.reportData = evt.report || null;
+    state.served = state.isCachedRun ? "cached" : "live";
+    if (state.isCachedRun) {
+      runCachedReplay();
+    } else {
+      state.phase = "delivered";
+      render();
+    }
+    return;
+  }
+  if (evt.stage === "_report_error") {
+    stopEverything();
+    state.phase = "idle";
+    state.errorMessage = evt.detail || "The run failed.";
+    render();
+    return;
+  }
+  // real pipeline stage event
+  state.stageStatus[evt.stage] = evt.status === "running" ? "running" : "done";
+  render();
+}
+
+// Cached targets: the backend has already returned the real report -- this
+// is a short, honestly-labelled, frontend-only replay of the five stages.
+// It never drives a live run.
+function runCachedReplay() {
+  state.replayTick = 0;
+  const step = () => {
+    render();
+    state.replayTick += 1;
+    if (state.replayTick <= CACHED_REPLAY_TICKS) {
+      state.replayTimer = setTimeout(step, CACHED_REPLAY_INTERVAL_MS);
+    } else {
+      state.replayTimer = null;
+      state.phase = "delivered";
+      render();
+    }
+  };
+  step();
+}
+
+document.getElementById("run-btn").addEventListener("click", () => submitTarget());
+input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submitTarget(); } });
+document.getElementById("cancel-btn").addEventListener("click", cancelRun);
+document.getElementById("preset-row").addEventListener("click", (e) => {
+  const btn = e.target.closest(".fp-chip");
+  if (!btn) return;
+  input.value = btn.dataset.preset;
+});
+document.getElementById("plain-toggle").addEventListener("click", () => {
+  state.showPlain = !state.showPlain;
+  render();
+});
+document.getElementById("stages-toggle").addEventListener("click", () => {
+  state.showStages = !state.showStages;
+  render();
+});
+document.getElementById("why-toggle").addEventListener("click", () => {
+  state.showWhy = !state.showWhy;
+  render();
+});
+
+/* ---------- render: left panel ---------- */
+
+function render() {
+  const running = state.phase === "running";
+  const delivered = state.phase === "delivered";
+  const idle = state.phase === "idle";
+
+  runBtn.disabled = running;
+  runBtn.textContent = running ? "Working" : (delivered ? "Generate another" : "Generate report");
+
+  document.getElementById("plain-toggle").textContent = state.showPlain
+    ? "Hide the plain-English explainer" : "What is a Target Safety Assessment?";
+  document.getElementById("plain-body").hidden = !state.showPlain;
+
+  document.getElementById("preset-row").hidden = running;
+  document.getElementById("progress-panel").hidden = !running;
+  document.getElementById("error-banner").hidden = !state.errorMessage;
+  document.getElementById("error-banner").textContent = state.errorMessage;
+
+  if (running) {
+    const replaying = state.isCachedRun;
+    document.getElementById("status-text").textContent =
+      state.statusOverride || (replaying ? "Replaying a pre-computed run" : "Running the full pipeline");
+  }
+
+  const runMetaPanel = document.getElementById("run-meta-panel");
+  runMetaPanel.hidden = !delivered;
+  if (delivered) renderRunMeta();
+
+  renderPipelineCard();
+  renderSectionsProgressCard();
+  renderPaneLabel();
+  renderReportArea();
+}
+
+function renderRunMeta() {
+  const rd = state.reportData;
+  const resolver = rd && rd.resolver;
+  const rows = [
+    ["target", state.shown],
+    ["resolver", resolver ? resolverSummary(resolver) : "Resolved live against openFDA"],
+    ["corpus", resolver ? corpusSummary(resolver) : "Label set as returned by the API"],
+    ["retrieved", rd && rd.generated_at ? rd.generated_at.slice(0, 10) : "Date stamped by the run"],
+    ["served", state.served === "cached" ? "Pre-computed demo run" : "Live run"],
+  ];
+  document.getElementById("run-meta-rows").innerHTML = rows.map(
+    ([k, v]) => `<div class="fp-run-meta-row"><span class="fp-run-meta-key mono">${escapeHtml(k)}</span><span class="fp-run-meta-val">${escapeHtml(v)}</span></div>`
+  ).join("");
+}
+
+function resolverSummary(resolver) {
+  if (resolver.path === "not_found") return `No match: ${escapeHtml(resolver.search_trail.map(t => t.phrase).join(", "))}`;
+  const pathLabel = resolver.path === "pharm_class_moa" ? "openFDA class" : "openFDA full-text fallback";
+  return resolver.matched_phrase ? `${pathLabel}: ${resolver.matched_phrase}` : pathLabel;
+}
+
+function corpusSummary(resolver) {
+  if (resolver.total_labels == null) return "No labels found";
+  if (resolver.nonclinical_label_count != null) {
+    return `${resolver.total_labels} labels in class, ${resolver.nonclinical_label_count} with nonclinical text`;
+  }
+  return `${resolver.total_labels} labels in class`;
+}
+
+/* ---------- render: pipeline card (right panel) ---------- */
+
+function pipelineRowStatuses() {
+  if (state.phase !== "running") {
+    // idle or delivered: the pipeline card is a permanent explainer, not a
+    // job-history tracker -- steady state outside an active run (matches v4).
+    return PIPELINE_ROWS.map((row) => ({ ...row, status: "pending" }));
+  }
+  if (state.isCachedRun) {
+    // Scripted replay: a cached run never emits real stage events, so this
+    // is driven by the replay tick, not stageStatus. Frontend-only and
+    // clearly labelled elsewhere (status line, served pill) -- never
+    // presented as live.
+    const frac = Math.min(1, state.replayTick / CACHED_REPLAY_TICKS);
+    const idx = Math.min(PIPELINE_ROWS.length - 1, Math.floor(frac * PIPELINE_ROWS.length));
+    return PIPELINE_ROWS.map((row, i) => ({
+      ...row,
+      status: i < idx ? "done" : (i === idx ? "current" : "pending"),
+    }));
+  }
+  return PIPELINE_ROWS.map((row) => {
+    const allDone = row.stages.every((s) => state.stageStatus[s] === "done");
+    const anyTouched = row.stages.some((s) => state.stageStatus[s] === "running" || state.stageStatus[s] === "done");
+    return { ...row, status: allDone ? "done" : (anyTouched ? "current" : "pending") };
+  });
+}
+
+function renderPipelineCard() {
+  const running = state.phase === "running";
+  document.getElementById("pipeline-title").textContent =
+    running ? `Running: ${state.shown}` : "What happens when you run a target";
+  document.getElementById("stages-toggle").textContent = state.showStages ? "hide detail" : "what each stage does";
+  document.getElementById("why-toggle").textContent = state.showWhy ? "less" : "why this matters";
+  document.getElementById("why-grid").hidden = !state.showWhy;
+
+  const rows = pipelineRowStatuses();
+  document.getElementById("pipeline-rows").innerHTML = rows.map((row, i) => {
+    const isLast = i === rows.length - 1;
+    const dotClass = row.status === "done" ? "done" : (row.status === "current" ? "current" : "");
+    const rowClass = ["fp-pipeline-row"];
+    if (row.status !== "pending") rowClass.push("touched");
+    if (row.status === "done") rowClass.push("done");
+    if (state.showStages) rowClass.push("expanded");
+    const railBg = isLast ? "transparent" : (row.status === "done" ? "var(--green)" : "var(--border2)");
+    return `
+      <div class="${rowClass.join(' ')}">
+        <div class="fp-pipeline-dotcol">
+          ${isLast ? "" : `<span class="fp-pipeline-rail" style="background:${railBg}"></span>`}
+          <span class="fp-pipeline-dot ${dotClass}"></span>
+        </div>
+        <div class="fp-pipeline-body">
+          <div class="fp-pipeline-label-row">
+            <span class="fp-pipeline-num mono">0${i + 1}</span>
+            <span class="fp-pipeline-name">${escapeHtml(row.name)}</span>
+            <span class="fp-pipeline-tag mono">${escapeHtml(row.tag)}</span>
+          </div>
+          ${state.showStages ? `<div class="fp-pipeline-desc">${escapeHtml(row.desc)}</div>` : ""}
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function renderSectionsProgressCard() {
+  const card = document.getElementById("sections-progress-card");
+  const running = state.phase === "running";
+  card.hidden = !running;
+  if (!running) return;
+
+  let sectionsDone;
+  if (state.isCachedRun) {
+    // Scripted replay, same tick source as the pipeline card -- see
+    // pipelineRowStatuses(). Never drives a live run.
+    const frac = Math.min(1, state.replayTick / CACHED_REPLAY_TICKS);
+    sectionsDone = Math.min(SECTION_TITLES.length, Math.floor(frac * (SECTION_TITLES.length + 1)));
+  } else {
+    // No per-section event exists on the backend (section_graph runs the
+    // 7-node graph + nested swarm as one call) -- honest binary state driven
+    // by the real section_graph stage event, never a per-tick timer fake.
+    // No section is ever shown "writing" live: we only know start and end.
+    sectionsDone = state.stageStatus.section_graph === "done" ? SECTION_TITLES.length : 0;
+  }
+  document.getElementById("sections-progress-rows").innerHTML = SECTION_TITLES.map((title, i) => {
+    const written = i < sectionsDone;
+    const writing = state.isCachedRun && i === sectionsDone;
+    const stateLabel = written ? "written" : (writing ? "writing" : "queued");
+    return `
+      <div class="fp-section-progress-row">
+        <span class="fp-section-progress-num mono">0${i + 1}</span>
+        <span class="fp-section-progress-title ${written || writing ? 'written' : ''}">${escapeHtml(title)}</span>
+        <span class="fp-section-progress-state mono ${stateLabel}">${stateLabel}</span>
+      </div>`;
+  }).join("");
+}
+
+function renderPaneLabel() {
+  const label = document.getElementById("pane-label");
+  label.hidden = state.phase !== "delivered";
+  if (state.phase === "delivered") {
+    document.getElementById("pane-label-text").textContent = `Your report · ${state.shown}`;
+  }
+}
+
+/* ---------- render: report card ---------- */
+
+function renderReportArea() {
+  const wrap = document.getElementById("report-wrap");
+  const running = state.phase === "running";
+  wrap.hidden = running;
+  if (running) return;
+
+  if (state.phase === "delivered" && state.reportData) {
+    renderReportCard(state.reportData, { mode: "delivered", html: state.reportHtml });
+    return;
+  }
+
+  // idle: the at-rest specimen is a real GLP-1R report (see fetchSpecimen),
+  // never invented copy -- report-card stays empty until it has arrived.
+  if (state.specimenReportData) {
+    renderReportCard(state.specimenReportData, { mode: "specimen" });
+  } else {
+    wrap.hidden = true;
+  }
+}
+
+function renderReportCard(rd, opts) {
+  const wrap = document.getElementById("report-wrap");
+  const specimen = opts.mode === "specimen";
+  wrap.hidden = false;
+  wrap.className = "fp-report-wrap" + (specimen ? "" : " delivered");
+
+  document.getElementById("page-stack").innerHTML = specimen
+    ? `<div class="fp-page-strip"></div><div class="fp-page-strip"></div>` : "";
+  const cornerTab = document.getElementById("corner-tab");
+  cornerTab.hidden = !specimen;
+  cornerTab.textContent = `Example report · ${rd.target}`;
+  document.getElementById("caption-row").hidden = !specimen;
+
+  const cardEl = document.getElementById("report-card");
+  cardEl.innerHTML = reportCardHtml(rd, opts);
+
+  if (!specimen) {
+    const openBtn = cardEl.querySelector("[data-action=open-report]");
+    if (openBtn) openBtn.addEventListener("click", () => openFullReport(opts.html));
+    const printBtn = cardEl.querySelector("[data-action=print-report]");
+    if (printBtn) printBtn.addEventListener("click", () => printFullReport(opts.html));
+  } else {
+    const ctaBtn = cardEl.querySelector("[data-action=focus-input]");
+    if (ctaBtn) ctaBtn.addEventListener("click", () => input.focus());
+  }
+}
+
+function openFullReport(html) {
+  if (!html) return;
+  const blob = new Blob([html], { type: "text/html" });
   const url = URL.createObjectURL(blob);
   window.open(url, "_blank");
   setTimeout(() => URL.revokeObjectURL(url), 60000);
-});
-
-function ensureRow(stage) {
-  let row = document.getElementById("stage-" + stage);
-  if (!row) {
-    row = document.createElement("li");
-    row.id = "stage-" + stage;
-    row.textContent = STAGE_LABELS[stage] || stage;
-    progressList.appendChild(row);
-  }
-  return row;
 }
 
-function submitTarget() {
-  const target = input.value.trim();
-  if (!target) return;
+function printFullReport(html) {
+  if (!html) return;
+  const frame = document.createElement("iframe");
+  frame.style.position = "fixed";
+  frame.style.right = "0";
+  frame.style.bottom = "0";
+  frame.style.width = "0";
+  frame.style.height = "0";
+  frame.style.border = "0";
+  document.body.appendChild(frame);
+  frame.srcdoc = html;
+  frame.onload = () => {
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+    setTimeout(() => document.body.removeChild(frame), 1000);
+  };
+}
 
-  resetUI();
-  button.disabled = true;
+function reportCardHtml(rd, opts) {
+  const specimen = opts.mode === "specimen";
+  const evals = rd.evaluations || [];
+  const evalPill = (id, label) => {
+    const ev = evals.find((e) => e.evaluator_id === id);
+    const val = ev ? (ev.status === "live" ? ev.score.toFixed(2) : "GAP") : "—";
+    return `<span class="fp-eval-pill mono">${label}<span class="val">${escapeHtml(val)}</span></span>`;
+  };
+  const servedLabel = rd.served === "cached" ? "Pre-computed demo run" : "Live run";
 
-  // One open connection for the whole run: progress events, then a single
-  // terminal event carrying the report HTML (or an error) -- no separate
-  // start/poll/fetch requests, so there is no cross-request state to keep
-  // in sync (this app can run on a serverless deployment where separate
-  // requests may land on different instances).
-  const source = new EventSource(`/api/generate?target=${encodeURIComponent(target)}`);
+  const sectionsHtml = (rd.sections || []).map((s) => sectionHtml(s, rd)).join("");
+
+  return `
+    <div class="fp-report-header">
+      <div class="fp-report-kicker mono">Target Safety Assessment · draft for review</div>
+      <div class="fp-report-target">${escapeHtml(rd.target)}</div>
+      <div class="fp-badge-row">
+        ${evalPill("Builtin.Faithfulness", "faithfulness")}
+        ${evalPill("Builtin.Correctness", "correctness")}
+        <span class="fp-served-pill mono">${escapeHtml(servedLabel)}</span>
+      </div>
+    </div>
+    ${specimen ? `
+      <div class="fp-specimen-notice">
+        <span class="rule"></span>
+        <div class="txt">A real ${escapeHtml(rd.target)} assessment, opened to the first lines of each of its seven sections. Yours will look like this, for the target you name.</div>
+      </div>` : ""}
+    ${sectionsHtml}
+    <div class="fp-card-footer">
+      <div class="fp-disclaimer">${escapeHtml(rd.disclaimer_text || "")}</div>
+      ${specimen
+        ? `<button type="button" class="fp-btn-cta" data-action="focus-input">Try it on your target</button>`
+        : `<div class="fp-btn-group">
+             <button type="button" class="fp-btn-secondary" data-action="open-report">Open the full report</button>
+             <button type="button" class="fp-btn-secondary" data-action="print-report">Print to PDF</button>
+           </div>`}
+    </div>`;
+}
+
+function sectionHtml(section, rd) {
+  const n = section.number;
+  if (n === 5) return adversitySectionHtml(section, rd);
+  if (n === 7) return referencesSectionHtml(section, rd);
+
+  const body = section.opening_html || section.html_body || "";
+  const curatedPill = n === 2
+    ? `<span class="fp-curated-marker mono">curated<span>knockout dataset</span></span>` : "";
+  const groundedBlock = n === 3 && rd.grounded_example ? groundedExampleHtml(rd.grounded_example) : "";
+
+  return `
+    <div class="fp-section">
+      <div class="fp-section-head-row">
+        <div class="fp-section-kicker mono">${section.number} · ${escapeHtml(section.title)}</div>
+        ${curatedPill}
+      </div>
+      <div class="fp-section-body">${body}</div>
+      ${groundedBlock}
+      <div class="fp-continuation">
+        <span class="rule"></span>
+        <span class="txt mono">section continues in the full report</span>
+        <span class="rule grow"></span>
+      </div>
+    </div>`;
+}
+
+function groundedExampleHtml(ex) {
+  return `
+    <div class="fp-grounded-block">
+      <div class="fp-grounded-elbow"></div>
+      <div class="fp-grounded-callout-wrap">
+        <div class="fp-grounded-callout">
+          <div class="fp-grounded-callout-head">
+            <span class="fp-grounded-callout-label mono">the source this line came from</span>
+          </div>
+          <div class="fp-grounded-excerpt">"${ex.source_excerpt_html}"</div>
+          <div class="fp-grounded-callout-foot">
+            <span class="fp-grounded-source mono">${escapeHtml(ex.source_label)}</span>
+            <span class="fp-grounded-score mono">word overlap<span>${(ex.overlap_score * 100).toFixed(0)}%</span></span>
+          </div>
+        </div>
+        <div class="fp-grounded-note mono">Every highlighted span in the document traces back this way.</div>
+      </div>
+    </div>`;
+}
+
+function adversitySectionHtml(section, rd) {
+  const all = rd.interpretations || [];
+  const live = all.filter((it) => it.status !== "gap").sort((a, b) => b.score - a.score);
+  const gaps = all.filter((it) => it.status === "gap");
+
+  if (!all.length) {
+    return `
+      <div class="fp-section">
+        <div class="fp-section-head-row"><div class="fp-section-kicker mono">05 · ${escapeHtml(section.title)}</div></div>
+        <div class="fp-gap-row"><div class="fp-gap-title">No interpretations were produced.</div></div>
+      </div>`;
+  }
+
+  const liveCards = live.map((it) => {
+    const pct = Math.round((it.score || 0) * 100);
+    return `
+      <div class="fp-adversity-card ${it.is_strongest ? 'strongest' : ''}">
+        <div class="fp-adversity-title">${escapeHtml(stanceLabel(it.stance))}</div>
+        <div class="fp-adversity-desc">${it.text}</div>
+        <div class="fp-adversity-bar-track"><span class="fp-adversity-bar-fill" style="width:${pct}%"></span></div>
+        <div class="fp-adversity-caption mono">${pct}% word overlap</div>
+      </div>`;
+  }).join("");
+  // A stance the swarm's fixed handoff chain never reached, even after one
+  // retry (backend/interpretation_swarm.py) -- shown as a real gap, not
+  // silently dropped and not filled with a fabricated bid.
+  const gapCards = gaps.map((it) => `
+      <div class="fp-adversity-card gap">
+        <div class="fp-adversity-title">${escapeHtml(stanceLabel(it.stance))}</div>
+        <div class="fp-adversity-desc">No bid submitted for this stance this run.</div>
+      </div>`).join("");
+
+  const total = all.length === 1 ? "One interpretation" : `${all.length} interpretations`;
+  const label = gaps.length ? `${total} attempted, ${live.length} bid, ranked. No recommendation.` : `${total}, ranked. No recommendation.`;
+
+  return `
+    <div class="fp-section">
+      <div class="fp-section-head-row">
+        <div class="fp-section-kicker mono">05 · ${escapeHtml(section.title)}</div>
+        <div style="font-size:12.5px; color:var(--slate)">${label}</div>
+      </div>
+      <div class="fp-adversity-grid">${liveCards}${gapCards}</div>
+      <div class="fp-adversity-footnote">The losing interpretations stay in the document with their scores. A reviewing scientist can see what was argued and on what basis, not only what won.</div>
+    </div>`;
+}
+
+function stanceLabel(stance) {
+  return String(stance || "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function referencesSectionHtml(section, rd) {
+  const refs = rd.references || [];
+  const rows = refs.map((r) => `
+    <div class="fp-bib-row">
+      <span class="fp-bib-tag mono ${r.kind === 'curated' ? 'curated' : 'retrieved'}">${escapeHtml(r.tag)}</span>
+      <span class="fp-bib-text">${escapeHtml(r.text)}</span>
+    </div>`).join("");
+  return `
+    <div class="fp-section">
+      <div class="fp-section-head-row">
+        <div class="fp-section-kicker mono">07 · ${escapeHtml(section.title)}</div>
+        <div class="mono" style="font-size:10.5px; color:var(--slate)">every tag resolves here</div>
+      </div>
+      ${rows || '<div class="fp-gap-note">No sources cited.</div>'}
+    </div>`;
+}
+
+/* ---------- specimen: fetch the real GLP-1R report once, silently ---------- */
+
+function fetchSpecimen() {
+  const source = new EventSource(`/api/generate?target=${encodeURIComponent("GLP-1R")}`);
   source.onmessage = (msg) => {
-    const evt = JSON.parse(msg.data);
-
+    let evt;
+    try { evt = JSON.parse(msg.data); } catch (e) { return; }
     if (evt.stage === "_report") {
       source.close();
-      button.disabled = false;
-      reportFrame.srcdoc = evt.html;
-      reportFrame.style.display = "block";
-      lastReportHtml = evt.html;
-      openReportBtn.style.display = "inline-block";
-      return;
-    }
-    if (evt.stage === "_report_error") {
-      source.close();
-      button.disabled = false;
-      errorBox.textContent = "Run failed: " + (evt.detail || "unknown error");
-      errorBox.style.display = "block";
-      return;
-    }
-
-    const row = ensureRow(evt.stage);
-    row.className = evt.status;
-    const label = STAGE_LABELS[evt.stage] || evt.stage;
-    row.textContent = evt.detail ? `${label} — ${evt.detail}` : label;
-  };
-  source.onerror = () => {
-    source.close();
-    button.disabled = false;
-    if (!errorBox.textContent) {
-      errorBox.textContent = "Connection to the server was lost.";
-      errorBox.style.display = "block";
+      if (evt.report) {
+        state.specimenReportData = evt.report;
+        render();
+      }
     }
   };
+  source.onerror = () => source.close();
 }
 
-button.addEventListener("click", submitTarget);
-input.addEventListener("keydown", (e) => { if (e.key === "Enter") submitTarget(); });
+/* ---------- init ---------- */
+
+initTheme();
+render();
+fetchSpecimen();
 </script>
 
 </body>
