@@ -83,4 +83,4 @@ Then open `http://localhost:8000`. Running the test suite (`pytest`) hits real o
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Apache License 2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE). Copyright 2026 3RD AI LLC (dba scienceexperts.ai). The First Pass name is not covered by the license.
