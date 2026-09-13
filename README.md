@@ -4,7 +4,7 @@
 
 A regulatory/nonclinical toxicologist starting work on a new drug target clicks through FDA and EPA portals by hand before she can even begin forming a judgment on adversity. First Pass automates that first pass: type a target name, and a complete, fully-cited Target Safety Assessment is on the table — the same document a toxicologist hands to a Discovery team or Safety Committee, and the document that later feeds CTD Module 2.4/2.6.
 
-**Live:** https://first-pass-beige.vercel.app (three demo targets — `GLP-1R`, `HER2`, `KRAS` — return instantly from a pre-computed run; any other target name runs the full pipeline live, in ~100-165s)
+**Live:** https://firstpass.scienceexperts.ai (fallback: https://first-pass-beige.vercel.app; three demo targets — `GLP-1R`, `HER2`, `KRAS` — return instantly from a pre-computed run; any other target name runs the full pipeline live, in ~100-165s)
 
 ## The principles
 
