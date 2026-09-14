@@ -97,6 +97,8 @@
   .fp-run-meta-val { flex: 1 1 auto; min-width: 0; font-size: 13px; line-height: 1.5; color: var(--body); }
 
   .fp-footer { margin-top: auto; font-size: 11px; line-height: 1.5; color: var(--slate); }
+  .fp-judge-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--green); }
+  .fp-judge-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
 
   /* Pipeline card */
   .fp-pipeline-card { flex: 0 0 auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-sm); padding: 16px 22px 18px; display: flex; flex-direction: column; gap: 14px; }
@@ -286,7 +288,7 @@
         <button type="button" class="fp-chip" data-preset="GLP-1R">GLP-1R</button>
         <button type="button" class="fp-chip" data-preset="HER2">HER2</button>
         <button type="button" class="fp-chip" data-preset="KRAS">KRAS</button>
-        <span class="mono" style="font-size:10.5px; color:var(--slate)">others run live</span>
+        <span class="mono" style="font-size:10.5px; color:var(--slate)" id="preset-live-note">others: judge access only</span>
       </div>
 
       <div class="fp-panel" id="progress-panel" hidden style="flex-direction:row; align-items:center; justify-content:space-between; padding:11px 14px">
@@ -306,6 +308,7 @@
     </div>
 
     <div class="fp-footer mono">Public demo, free to test through October 8, 2026</div>
+    <div class="fp-judge-badge mono" id="judge-badge" hidden>Judge access verified — live runs enabled for any target</div>
   </aside>
 
   <main class="fp-main">
@@ -477,7 +480,9 @@ function startRun(target) {
   state.openEvalId = null;
   render();
 
-  const source = new EventSource(`/api/generate?target=${encodeURIComponent(target)}`);
+  const code = getJudgeCode();
+  const genUrl = `/api/generate?target=${encodeURIComponent(target)}` + (code ? `&code=${encodeURIComponent(code)}` : "");
+  const source = new EventSource(genUrl);
   state.eventSource = source;
   source.onmessage = (msg) => {
     let evt;
@@ -1031,11 +1036,62 @@ function fetchSpecimen() {
   source.onerror = () => source.close();
 }
 
+/* ---------- judge access code (Cost Guard) ----------
+   Public visitors get the three cached demo targets plus the free "no
+   evidence found" result; any other target needs a live model call, which
+   is reserved for judges through a code carried in the private Devpost
+   testing-instructions field, never on the public site. A code arriving as
+   ?judge=... or ?code=... in the URL is moved into sessionStorage (per the
+   session, not persisted past it) and stripped from the address bar so it
+   never sits in a bookmark, a browser history entry, or a screen recording.
+   The badge below only ever reflects a code the backend has confirmed --
+   this app does not claim a state on screen that isn't actually true. */
+
+const JUDGE_CODE_STORAGE_KEY = "firstpass-judge-code";
+
+function getJudgeCode() {
+  try { return window.sessionStorage.getItem(JUDGE_CODE_STORAGE_KEY) || ""; } catch (e) { return ""; }
+}
+
+function setJudgeCode(code) {
+  try { window.sessionStorage.setItem(JUDGE_CODE_STORAGE_KEY, code); } catch (e) { /* private mode */ }
+}
+
+function showJudgeAccess(active) {
+  const badge = document.getElementById("judge-badge");
+  if (badge) badge.hidden = !active;
+  const note = document.getElementById("preset-live-note");
+  if (note) note.textContent = active ? "others run live" : "others: judge access only";
+}
+
+function verifyJudgeCode(code) {
+  if (!code) { showJudgeAccess(false); return; }
+  fetch(`/api/access?code=${encodeURIComponent(code)}`)
+    .then((res) => res.json())
+    .then((data) => showJudgeAccess(Boolean(data && data.valid)))
+    .catch(() => showJudgeAccess(false));
+}
+
+function initJudgeAccess() {
+  const params = new URLSearchParams(window.location.search);
+  const urlCode = params.get("judge") || params.get("code");
+  if (urlCode) {
+    setJudgeCode(urlCode);
+    params.delete("judge");
+    params.delete("code");
+    const rest = params.toString();
+    const cleanUrl = window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash;
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
+  verifyJudgeCode(getJudgeCode());
+}
+
 /* ---------- init ---------- */
 
 initTheme();
 render();
 fetchSpecimen();
+initJudgeAccess();
 </script>
 
 </body>

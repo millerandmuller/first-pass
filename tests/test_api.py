@@ -11,6 +11,7 @@ pre-warmed (see test_demo_cache.py and backend/demo_cache.py).
 """
 
 import json
+import time
 
 from fastapi.testclient import TestClient
 
@@ -43,8 +44,16 @@ def test_generate_requires_target():
     assert resp.status_code == 400
 
 
-def test_full_run_streams_progress_then_a_terminal_report_event():
-    with client.stream("GET", "/api/generate", params={"target": "PD-L1"}) as resp:
+def test_full_run_streams_progress_then_a_terminal_report_event(monkeypatch):
+    # A valid judge code is required for a real (non-demo, non-empty) target
+    # since the Cost Guard landed -- see the judge-access tests below. This
+    # is a genuine end-to-end smoke test (real openFDA + real Bedrock, no
+    # mocks) and is NOT run as part of routine verification for that reason;
+    # run it deliberately when you want to confirm the live path still works.
+    monkeypatch.setenv("JUDGE_ACCESS_CODE", "test-judge-code")
+    with client.stream(
+        "GET", "/api/generate", params={"target": "PD-L1", "code": "test-judge-code"}
+    ) as resp:
         events = _read_sse_events(resp)
 
     stages = [e["stage"] for e in events]
@@ -79,6 +88,8 @@ def test_heartbeat_comments_keep_a_slow_stage_alive_without_becoming_events(monk
     from backend.pipeline import PipelineResult
 
     monkeypatch.setattr(api_module, "_HEARTBEAT_INTERVAL_SECONDS", 0.05)
+    monkeypatch.setenv("JUDGE_ACCESS_CODE", "test-judge-code")
+    monkeypatch.setattr(api_module, "_JUDGE_LIVE_RUN_TIMESTAMPS", [])
 
     def slow_fake_pipeline(target, on_progress):
         on_progress("target_resolution", "done", None)
@@ -88,7 +99,9 @@ def test_heartbeat_comments_keep_a_slow_stage_alive_without_becoming_events(monk
     monkeypatch.setattr(api_module, "run_pipeline", slow_fake_pipeline)
     monkeypatch.setattr(api_module, "render_html", lambda report: "<p>stub</p>")
 
-    with client.stream("GET", "/api/generate", params={"target": "PD-L1"}) as resp:
+    with client.stream(
+        "GET", "/api/generate", params={"target": "PD-L1", "code": "test-judge-code"}
+    ) as resp:
         raw = resp.read().decode()
 
     assert raw.count(": heartbeat\n\n") >= 2
@@ -107,18 +120,27 @@ def test_live_run_rate_limit_is_enforced_between_consecutive_calls(monkeypatch):
     # cannot forcibly interrupt a running thread), so without this stub a
     # real live pipeline would keep running to completion regardless of
     # what the test itself observes -- silently wasting real AWS time/cost.
+    # resolve_target is stubbed too, purely so the real openFDA round-trip's
+    # variable latency can't eat into the tight 0.2s window below.
+    from types import SimpleNamespace
+
     from backend.pipeline import PipelineResult
 
     def fake_run_pipeline(target, on_progress):
         on_progress("target_resolution", "done", "stubbed, no live call")
         return PipelineResult(report=None, target_resolution=None, is_partial=False)
 
+    monkeypatch.setattr(api_module, "resolve_target", lambda target: SimpleNamespace(found=True))
     monkeypatch.setattr(api_module, "run_pipeline", fake_run_pipeline)
     monkeypatch.setattr(api_module, "render_html", lambda report: "<p>stub report</p>")
     monkeypatch.setattr(api_module, "_last_live_run_started_at", __import__("time").time())
     monkeypatch.setattr(api_module, "_MIN_SECONDS_BETWEEN_LIVE_RUNS", 0.2)
+    monkeypatch.setenv("JUDGE_ACCESS_CODE", "test-judge-code")
+    monkeypatch.setattr(api_module, "_JUDGE_LIVE_RUN_TIMESTAMPS", [])
 
-    with client.stream("GET", "/api/generate", params={"target": "PD-L1"}) as resp:
+    with client.stream(
+        "GET", "/api/generate", params={"target": "PD-L1", "code": "test-judge-code"}
+    ) as resp:
         events = _read_sse_events(resp)
 
     assert events[0]["stage"] == "rate_limit"
@@ -168,10 +190,17 @@ def test_kill_switch_blocks_live_runs_but_not_cached_demo_targets(tmp_path, monk
     monkeypatch.setattr(api_module, "run_pipeline", must_not_run)
     monkeypatch.setattr(demo_cache, "_CACHE_DIR", str(tmp_path))
     demo_cache.save_cached_report("HER2", "<p>cached HER2 report</p>", 99.0, "dry-run-1")
+    # A valid judge code is required to even reach the kill switch (see
+    # test_public_request_without_a_code_is_blocked_before_the_kill_switch
+    # below) -- this test is specifically about the kill switch, so it
+    # supplies one and stays scoped to that one check.
+    monkeypatch.setenv("JUDGE_ACCESS_CODE", "test-judge-code")
 
     for value in ("0", "false", "No", " OFF "):
         monkeypatch.setenv("LIVE_RUNS_ENABLED", value)
-        with client.stream("GET", "/api/generate", params={"target": "PD-L1"}) as resp:
+        with client.stream(
+            "GET", "/api/generate", params={"target": "PD-L1", "code": "test-judge-code"}
+        ) as resp:
             events = _read_sse_events(resp)
         assert events == [{"stage": "_report_error", "detail": api_module.LIVE_RUNS_PAUSED_MESSAGE}]
 
@@ -204,10 +233,162 @@ def test_bedrock_throttling_surfaces_a_plain_english_message_not_the_raw_excepti
 
     monkeypatch.setattr(api_module, "run_pipeline", fake_throttled_pipeline)
     monkeypatch.setattr(api_module, "_last_live_run_started_at", 0.0)
+    monkeypatch.setenv("JUDGE_ACCESS_CODE", "test-judge-code")
+    monkeypatch.setattr(api_module, "_JUDGE_LIVE_RUN_TIMESTAMPS", [])
 
-    with client.stream("GET", "/api/generate", params={"target": "PD-L1"}) as resp:
+    with client.stream(
+        "GET", "/api/generate", params={"target": "PD-L1", "code": "test-judge-code"}
+    ) as resp:
         events = _read_sse_events(resp)
 
     assert events[-1]["stage"] == "_report_error"
     assert "ThrottlingException" not in events[-1]["detail"]
     assert "rate-limiting" in events[-1]["detail"].lower()
+
+
+# Cost Guard (2026-09-14): the public site serves the three cached demo
+# targets and the free "no evidence found" result to everyone; a target that
+# resolves to real evidence needs a live model call, reserved for hackathon
+# judges via JUDGE_ACCESS_CODE. See DECISION_LOG.md, 2026-09-13, for the
+# design this implements.
+
+
+def test_public_request_without_a_code_is_blocked_before_the_kill_switch(monkeypatch):
+    # This is the free-tier boundary itself: no JUDGE_ACCESS_CODE configured
+    # at all, a real target, no code on the request -- must never reach the
+    # pipeline (real Bedrock spend), regardless of the kill switch's state.
+    monkeypatch.delenv("JUDGE_ACCESS_CODE", raising=False)
+
+    def must_not_run(target, on_progress):
+        raise AssertionError("pipeline ran for an unauthorized public request")
+
+    monkeypatch.setattr(api_module, "run_pipeline", must_not_run)
+
+    with client.stream("GET", "/api/generate", params={"target": "PD-L1"}) as resp:
+        events = _read_sse_events(resp)
+
+    assert events == [{"stage": "_report_error", "detail": api_module.PUBLIC_DEMO_MODE_MESSAGE}]
+
+
+def test_wrong_code_is_rejected_same_as_no_code(monkeypatch):
+    monkeypatch.setenv("JUDGE_ACCESS_CODE", "correct-code")
+
+    def must_not_run(target, on_progress):
+        raise AssertionError("pipeline ran with a wrong code")
+
+    monkeypatch.setattr(api_module, "run_pipeline", must_not_run)
+
+    with client.stream(
+        "GET", "/api/generate", params={"target": "PD-L1", "code": "wrong-code"}
+    ) as resp:
+        events = _read_sse_events(resp)
+
+    assert events == [{"stage": "_report_error", "detail": api_module.PUBLIC_DEMO_MODE_MESSAGE}]
+
+
+def test_not_found_target_stays_free_even_with_no_code_and_kill_switch_off(monkeypatch):
+    # The exact regression this feature had to avoid (DECISION_LOG.md,
+    # 2026-09-13): a target with nothing to write about costs nothing, so it
+    # must stay open to the public even while the kill switch is off and no
+    # judge code is present -- a real Bedrock-costing gate must never block
+    # a request that was never going to touch Bedrock in the first place.
+    monkeypatch.delenv("JUDGE_ACCESS_CODE", raising=False)
+    monkeypatch.setenv("LIVE_RUNS_ENABLED", "0")
+
+    from backend.pipeline import PipelineResult
+
+    calls = []
+
+    def fake_not_found_pipeline(target, on_progress):
+        calls.append(target)
+        on_progress("target_resolution", "empty", f"no drug names resolved for '{target}'")
+        return PipelineResult(report=None, target_resolution=None, is_partial=False)
+
+    monkeypatch.setattr(api_module, "run_pipeline", fake_not_found_pipeline)
+    monkeypatch.setattr(api_module, "render_html", lambda report: "<p>stub</p>")
+
+    with client.stream("GET", "/api/generate", params={"target": "ZZZ-GARBAGE"}) as resp:
+        events = _read_sse_events(resp)
+
+    assert calls == ["ZZZ-GARBAGE"]
+    assert events[-1]["stage"] == "_report"
+    assert events[-1] != {"stage": "_report_error", "detail": api_module.LIVE_RUNS_PAUSED_MESSAGE}
+
+
+def test_valid_code_allows_a_real_target_through_to_the_pipeline(monkeypatch):
+    from backend.pipeline import PipelineResult
+
+    monkeypatch.setenv("JUDGE_ACCESS_CODE", "test-judge-code")
+    monkeypatch.setattr(api_module, "_JUDGE_LIVE_RUN_TIMESTAMPS", [])
+    monkeypatch.setattr(api_module, "_last_live_run_started_at", 0.0)
+
+    calls = []
+
+    def fake_pipeline(target, on_progress):
+        calls.append(target)
+        on_progress("target_resolution", "done", None)
+        return PipelineResult(report=None, target_resolution=None, is_partial=False)
+
+    monkeypatch.setattr(api_module, "run_pipeline", fake_pipeline)
+    monkeypatch.setattr(api_module, "render_html", lambda report: "<p>stub</p>")
+
+    with client.stream(
+        "GET", "/api/generate", params={"target": "PD-L1", "code": "test-judge-code"}
+    ) as resp:
+        events = _read_sse_events(resp)
+
+    assert calls == ["PD-L1"]
+    assert events[-1]["stage"] == "_report"
+    assert len(api_module._JUDGE_LIVE_RUN_TIMESTAMPS) == 1  # this run was counted toward the daily cap
+
+
+def test_daily_judge_cap_blocks_further_live_runs_once_reached(monkeypatch):
+    monkeypatch.setenv("JUDGE_ACCESS_CODE", "test-judge-code")
+    monkeypatch.setattr(api_module, "_MAX_JUDGE_LIVE_RUNS_PER_DAY", 1)
+    monkeypatch.setattr(api_module, "_JUDGE_LIVE_RUN_TIMESTAMPS", [time.time()])  # cap already reached
+
+    def must_not_run(target, on_progress):
+        raise AssertionError("pipeline ran past the daily judge cap")
+
+    monkeypatch.setattr(api_module, "run_pipeline", must_not_run)
+
+    with client.stream(
+        "GET", "/api/generate", params={"target": "PD-L1", "code": "test-judge-code"}
+    ) as resp:
+        events = _read_sse_events(resp)
+
+    assert events == [{"stage": "_report_error", "detail": api_module.JUDGE_DAILY_CAP_MESSAGE}]
+
+
+def test_judge_cap_window_is_rolling_24h_not_a_hard_reset(monkeypatch):
+    monkeypatch.setenv("JUDGE_ACCESS_CODE", "test-judge-code")
+    monkeypatch.setattr(api_module, "_MAX_JUDGE_LIVE_RUNS_PER_DAY", 1)
+    stale_timestamp = time.time() - 90_000  # more than 24h ago
+    monkeypatch.setattr(api_module, "_JUDGE_LIVE_RUN_TIMESTAMPS", [stale_timestamp])
+    monkeypatch.setattr(api_module, "_last_live_run_started_at", 0.0)
+
+    from backend.pipeline import PipelineResult
+
+    def fake_pipeline(target, on_progress):
+        on_progress("target_resolution", "done", None)
+        return PipelineResult(report=None, target_resolution=None, is_partial=False)
+
+    monkeypatch.setattr(api_module, "run_pipeline", fake_pipeline)
+    monkeypatch.setattr(api_module, "render_html", lambda report: "<p>stub</p>")
+
+    with client.stream(
+        "GET", "/api/generate", params={"target": "PD-L1", "code": "test-judge-code"}
+    ) as resp:
+        events = _read_sse_events(resp)
+
+    assert events[-1]["stage"] == "_report"
+
+
+def test_access_endpoint_confirms_a_valid_code_and_rejects_everything_else(monkeypatch):
+    monkeypatch.setenv("JUDGE_ACCESS_CODE", "correct-code")
+    assert client.get("/api/access", params={"code": "correct-code"}).json() == {"valid": True}
+    assert client.get("/api/access", params={"code": "wrong-code"}).json() == {"valid": False}
+    assert client.get("/api/access").json() == {"valid": False}
+
+    monkeypatch.delenv("JUDGE_ACCESS_CODE", raising=False)
+    assert client.get("/api/access", params={"code": "correct-code"}).json() == {"valid": False}

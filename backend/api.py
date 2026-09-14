@@ -15,6 +15,7 @@ retrieval/scoring/citation layers underneath are the carefully-built part.
 
 from __future__ import annotations
 
+import hmac
 import json
 import os
 import queue
@@ -30,6 +31,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.demo_cache import cache_banner_html, load_cached_report
 from backend.pipeline import run_pipeline
 from backend.report_renderer import render_html, report_to_dict
+from backend.target_resolution import resolve_target
 
 app = FastAPI(title="First Pass API")
 app.add_middleware(
@@ -68,6 +70,55 @@ def live_runs_enabled() -> bool:
     return os.environ.get(_LIVE_RUNS_ENABLED_ENV, "1").strip().lower() not in _FALSY
 
 
+# Cost Guard: the public site serves the three cached demo targets plus the
+# free "no evidence found" result (target resolution itself never touches
+# Bedrock) to everyone. A target that DOES resolve to real evidence is about
+# to trigger a real, paid Strands/Bedrock run -- reserved for hackathon
+# judges during the judging period (through 2026-10-08), via a code carried
+# in the private Devpost testing-instructions field, never the public site.
+# Nothing here is mocked for the public: the same real pipeline and the same
+# real empty-result path run either way, just gated at the point where a run
+# would actually start costing money. Unset JUDGE_ACCESS_CODE means no one
+# has judge-level access, independent of the LIVE_RUNS_ENABLED kill switch
+# below (which still applies on top of a valid code -- see F13/F11 notes and
+# DECISION_LOG.md, 2026-09-13).
+_JUDGE_ACCESS_CODE_ENV = "JUDGE_ACCESS_CODE"
+
+# Best-effort daily cap on judge-authorized live runs, process-wide (same
+# multi-instance caveat as _LIVE_RUN_LOCK above) -- bounds worst-case spend
+# if the code ever leaks past the judges it was given to.
+_MAX_JUDGE_LIVE_RUNS_PER_DAY = 40
+_JUDGE_LIVE_RUN_TIMESTAMPS: list[float] = []
+
+PUBLIC_DEMO_MODE_MESSAGE = (
+    "This target has real evidence to write about, which means a live model run -- "
+    "reserved for hackathon judges during the judging period. Try GLP-1R, HER2, or "
+    "KRAS for a full example now."
+)
+JUDGE_DAILY_CAP_MESSAGE = (
+    "The judge live-run cap for today has been reached. The three pre-computed demo "
+    "targets (GLP-1R, HER2, KRAS) are still available; live runs reopen tomorrow."
+)
+
+
+def _valid_judge_code(code: Optional[str]) -> bool:
+    configured = os.environ.get(_JUDGE_ACCESS_CODE_ENV, "").strip()
+    if not configured or not code:
+        return False
+    return hmac.compare_digest(configured, code.strip())
+
+
+def _judge_daily_cap_reached() -> bool:
+    cutoff = time.time() - 86400
+    while _JUDGE_LIVE_RUN_TIMESTAMPS and _JUDGE_LIVE_RUN_TIMESTAMPS[0] < cutoff:
+        _JUDGE_LIVE_RUN_TIMESTAMPS.pop(0)
+    return len(_JUDGE_LIVE_RUN_TIMESTAMPS) >= _MAX_JUDGE_LIVE_RUNS_PER_DAY
+
+
+def _record_judge_live_run() -> None:
+    _JUDGE_LIVE_RUN_TIMESTAMPS.append(time.time())
+
+
 def _sse(event: dict) -> str:
     return f"data: {json.dumps(event)}\n\n"
 
@@ -86,7 +137,7 @@ def _friendly_error_message(exc: Exception) -> str:
     return text
 
 
-def _generate_events(target: str):
+def _generate_events(target: str, code: Optional[str] = None):
     """The single SSE stream for one generation: progress events, then
     exactly one terminal event carrying either the report HTML or an error."""
     cached = load_cached_report(target)
@@ -98,7 +149,24 @@ def _generate_events(target: str):
         yield _sse(report_event)
         return
 
-    if not live_runs_enabled():
+    # Free openFDA lookup, never Bedrock -- pipeline.run_pipeline takes the
+    # same free early-return path for a target with no resolvable evidence.
+    # Whether this run is about to cost money is decided by this result, not
+    # by the target string itself, so every cost-guard check below applies
+    # only when it does; a target with nothing to write about stays open to
+    # everyone even while the kill switch is off or no code is present.
+    resolution = resolve_target(target)
+    will_cost_money = resolution.found
+
+    if will_cost_money and not _valid_judge_code(code):
+        yield _sse({"stage": "_report_error", "detail": PUBLIC_DEMO_MODE_MESSAGE})
+        return
+
+    if will_cost_money and _judge_daily_cap_reached():
+        yield _sse({"stage": "_report_error", "detail": JUDGE_DAILY_CAP_MESSAGE})
+        return
+
+    if will_cost_money and not live_runs_enabled():
         yield _sse({"stage": "_report_error", "detail": LIVE_RUNS_PAUSED_MESSAGE})
         return
 
@@ -128,6 +196,7 @@ def _generate_events(target: str):
             global _last_live_run_started_at
             with _LIVE_RUN_LOCK:
                 _last_live_run_started_at = time.time()
+            _record_judge_live_run()
         q.put({"stage": stage, "status": status, "detail": detail})
 
     def worker() -> None:
@@ -173,11 +242,19 @@ def _generate_events(target: str):
 
 
 @app.get("/api/generate")
-def generate(target: str) -> StreamingResponse:
+def generate(target: str, code: Optional[str] = None) -> StreamingResponse:
     target = (target or "").strip()
     if not target:
         raise HTTPException(400, "target is required")
-    return StreamingResponse(_generate_events(target), media_type="text/event-stream")
+    return StreamingResponse(_generate_events(target, code), media_type="text/event-stream")
+
+
+@app.get("/api/access")
+def access(code: str = "") -> dict:
+    """Lets the frontend confirm a code is valid before it claims judge
+    access on screen -- this app never silently presents a state as true
+    that isn't (see demo_cache.cache_banner_html's own rule)."""
+    return {"valid": _valid_judge_code(code)}
 
 
 @app.get("/api/health")
