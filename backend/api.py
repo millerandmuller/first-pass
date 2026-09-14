@@ -159,7 +159,13 @@ def _generate_events(target: str, code: Optional[str] = None):
     will_cost_money = resolution.found
 
     if will_cost_money and not _valid_judge_code(code):
-        yield _sse({"stage": "_report_error", "detail": PUBLIC_DEMO_MODE_MESSAGE})
+        # A distinct terminal stage, not "_report_error": this is not a
+        # failure, it is the demo working exactly as designed for the vast
+        # majority of visitors. The frontend renders it as a CTA modal
+        # (book a demo) rather than the red error banner used for genuine
+        # failures, so a public visitor does not read "reserved for judges"
+        # as "the app is broken."
+        yield _sse({"stage": "_judge_only", "detail": PUBLIC_DEMO_MODE_MESSAGE})
         return
 
     if will_cost_money and _judge_daily_cap_reached():

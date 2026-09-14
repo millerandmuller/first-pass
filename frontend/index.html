@@ -246,6 +246,22 @@
 
   /* Error banner */
   .fp-error-banner { border: 1px solid var(--border); border-left: 3px solid var(--red); border-radius: 10px; background: var(--inset); padding: 12px 14px; font-size: 13px; line-height: 1.5; color: var(--body); }
+
+  /* Judge-only modal -- shown instead of the red error banner when a public
+     visitor's target would need a live model run. This is the demo working
+     as designed, not a failure, so it gets its own calm presentation and a
+     next step instead of a dead end. */
+  .fp-modal-overlay { position: fixed; inset: 0; background: rgba(17,24,39,.5); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
+  .fp-modal { position: relative; width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-lg); padding: 28px 26px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .fp-modal-close { position: absolute; top: 14px; right: 14px; cursor: pointer; background: transparent; border: none; font-size: 20px; line-height: 1; color: var(--slate); padding: 4px; }
+  .fp-modal-close:hover { color: var(--text); }
+  .fp-modal-title { font-size: 18px; font-weight: 700; color: var(--ink); padding-right: 20px; }
+  .fp-modal-body { font-size: 14px; line-height: 1.55; color: var(--body); }
+  .fp-modal-prompt { font-size: 14px; font-weight: 600; color: var(--text); margin-top: 4px; }
+  .fp-modal-cta { display: block; text-align: center; text-decoration: none; cursor: pointer; background: var(--btn-bg); color: var(--btn-fg); border: none; border-radius: 9999px; padding: 13px 22px; font-size: 14.5px; font-weight: 600; box-shadow: var(--shadow-sm); transition: background 160ms, transform 160ms; }
+  .fp-modal-cta:hover { background: var(--btn-bg-h); transform: translateY(-1px); }
+  .fp-modal-secondary { align-self: center; cursor: pointer; background: transparent; border: none; padding: 2px; font-size: 13px; font-weight: 600; color: var(--slate); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border2); }
+  .fp-modal-secondary:hover { color: var(--text); }
 </style>
 </head>
 <body>
@@ -355,6 +371,17 @@
     </div>
 
   </main>
+</div>
+
+<div class="fp-modal-overlay" id="judge-modal-overlay" hidden>
+  <div class="fp-modal" role="dialog" aria-modal="true" aria-labelledby="judge-modal-title">
+    <button type="button" class="fp-modal-close" id="judge-modal-close" aria-label="Close">&times;</button>
+    <div class="fp-modal-title" id="judge-modal-title">This target needs a live run</div>
+    <div class="fp-modal-body">The public demo runs <strong>GLP-1R</strong>, <strong>HER2</strong>, and <strong>KRAS</strong> instantly. Full access is reserved for hackathon judges through the judging period, since a live run makes a paid model call.</div>
+    <div class="fp-modal-prompt">Want to see it run on your own target?</div>
+    <a class="fp-modal-cta" id="judge-modal-cta" href="https://cal.com/scienceexperts/15min" target="_blank" rel="noopener">Book a free demo</a>
+    <button type="button" class="fp-modal-secondary" id="judge-modal-try-demo">Try GLP-1R instead</button>
+  </div>
 </div>
 
 <script>
@@ -505,6 +532,26 @@ function cancelRun() {
   render();
 }
 
+/* ---------- judge-only modal ---------- */
+
+function showJudgeModal() {
+  document.getElementById("judge-modal-overlay").hidden = false;
+}
+
+function hideJudgeModal() {
+  document.getElementById("judge-modal-overlay").hidden = true;
+}
+
+document.getElementById("judge-modal-close").addEventListener("click", hideJudgeModal);
+document.getElementById("judge-modal-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "judge-modal-overlay") hideJudgeModal();
+});
+document.getElementById("judge-modal-try-demo").addEventListener("click", () => {
+  hideJudgeModal();
+  input.value = "GLP-1R";
+  input.focus();
+});
+
 function handleEvent(evt) {
   if (evt.stage === "cache") {
     state.isCachedRun = true;
@@ -527,6 +574,13 @@ function handleEvent(evt) {
       state.phase = "delivered";
       render();
     }
+    return;
+  }
+  if (evt.stage === "_judge_only") {
+    stopEverything();
+    state.phase = "idle";
+    render();
+    showJudgeModal();
     return;
   }
   if (evt.stage === "_report_error") {

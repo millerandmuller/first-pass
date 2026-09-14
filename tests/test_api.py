@@ -267,7 +267,10 @@ def test_public_request_without_a_code_is_blocked_before_the_kill_switch(monkeyp
     with client.stream("GET", "/api/generate", params={"target": "PD-L1"}) as resp:
         events = _read_sse_events(resp)
 
-    assert events == [{"stage": "_report_error", "detail": api_module.PUBLIC_DEMO_MODE_MESSAGE}]
+    # "_judge_only", not "_report_error": the frontend renders this as the
+    # book-a-demo modal, not the red error banner -- this is the demo
+    # working as designed, not a failure.
+    assert events == [{"stage": "_judge_only", "detail": api_module.PUBLIC_DEMO_MODE_MESSAGE}]
 
 
 def test_wrong_code_is_rejected_same_as_no_code(monkeypatch):
@@ -283,7 +286,7 @@ def test_wrong_code_is_rejected_same_as_no_code(monkeypatch):
     ) as resp:
         events = _read_sse_events(resp)
 
-    assert events == [{"stage": "_report_error", "detail": api_module.PUBLIC_DEMO_MODE_MESSAGE}]
+    assert events == [{"stage": "_judge_only", "detail": api_module.PUBLIC_DEMO_MODE_MESSAGE}]
 
 
 def test_not_found_target_stays_free_even_with_no_code_and_kill_switch_off(monkeypatch):
